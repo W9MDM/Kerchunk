@@ -103,6 +103,11 @@ interface SettingsModalProps {
   audioOutput: string;
   onAudioInputChange: (deviceId: string) => void;
   onAudioOutputChange: (deviceId: string) => void;
+  advancedMode: boolean;
+  iaxUser: string;
+  iaxSecret: string;
+  onIaxUserChange: (v: string) => void;
+  onIaxSecretChange: (v: string) => void;
   mdcEnabled: boolean;
   mdcUnitId: string;
   mdcTiming: 'start' | 'end' | 'both';
@@ -236,10 +241,27 @@ export function SettingsModal(props: SettingsModalProps) {
                   <input value={props.wtPassword} onChange={(e) => props.setWtPassword(e.target.value)} type="password" className={inputClass} placeholder="allstarlink.org portal password" />
                 </div>
               </div>
+              {props.advancedMode && (
+                <div>
+                  <h3 className={sectionLabel}>IAX link credentials (advanced)</h3>
+                  <div className="grid gap-2.5">
+                    <input value={props.iaxUser} onChange={(e) => props.onIaxUserChange(e.target.value)} className={inputClass} placeholder="IAX username (for direct links)" />
+                    <input value={props.iaxSecret} onChange={(e) => props.onIaxSecretChange(e.target.value)} type="password" className={inputClass} placeholder="IAX secret (for direct links)" />
+                  </div>
+                  <p className="mt-1.5 text-xs text-muted-foreground">
+                    Used only when linking to a direct address (a private node/hub you run). Leave blank to reuse your node number and secret.
+                  </p>
+                </div>
+              )}
               <label className="flex items-center gap-2 text-sm text-muted-foreground">
                 <input type="checkbox" checked={props.trace} onChange={(e) => props.onTraceToggle(e.target.checked)} />
                 Show frame-level trace (debugging)
               </label>
+              {!props.advancedMode && (
+                <p className="text-xs text-muted-foreground">
+                  Tip: enable <span className="font-medium text-foreground">Advanced mode</span> from the menu to link to a direct address with custom IAX credentials.
+                </p>
+              )}
             </div>
           )}
 
