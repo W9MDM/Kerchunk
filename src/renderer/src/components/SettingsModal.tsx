@@ -131,7 +131,7 @@ export function SettingsModal(props: SettingsModalProps) {
       <div className="mt-8 flex max-h-[85vh] w-full max-w-md flex-col rounded-2xl border border-border bg-card p-5 shadow-card" onClick={(e) => e.stopPropagation()}>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-lg font-semibold">Settings</h2>
-          <button onClick={onClose} className="rounded-lg px-2 py-1 text-sm text-muted-foreground transition hover:bg-accent hover:text-foreground">
+          <button onClick={onClose} title="Close" aria-label="Close settings" className="rounded-lg px-2 py-1 text-sm text-muted-foreground transition hover:bg-accent hover:text-foreground">
             <FontAwesomeIcon icon={faXmark} />
           </button>
         </div>
@@ -213,7 +213,7 @@ export function SettingsModal(props: SettingsModalProps) {
                                 Link
                               </button>
                             )}
-                            <button onClick={() => props.onRemoveSaved(n.number)} title="Remove" className="rounded-full border border-border px-2.5 py-1 text-xs text-muted-foreground transition hover:bg-destructive/10 hover:text-destructive">
+                            <button onClick={() => props.onRemoveSaved(n.number)} title="Remove from saved nodes" aria-label="Remove saved node" className="rounded-full border border-border px-2.5 py-1 text-xs text-muted-foreground transition hover:bg-destructive/10 hover:text-destructive">
                               <FontAwesomeIcon icon={faTrash} />
                             </button>
                           </div>

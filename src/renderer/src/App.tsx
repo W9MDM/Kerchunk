@@ -662,7 +662,8 @@ export default function App() {
             </div>
             <button
               onClick={() => setDirectoryOpen(true)}
-              title="Node directory"
+              title="Browse the AllStarLink node directory"
+              aria-label="Node directory"
               className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition hover:bg-accent hover:text-foreground"
             >
               <FontAwesomeIcon icon={faTowerBroadcast} />
@@ -670,6 +671,7 @@ export default function App() {
             <button
               onClick={() => setSettingsOpen(true)}
               title="Settings"
+              aria-label="Settings"
               className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition hover:bg-accent hover:text-foreground"
             >
               <FontAwesomeIcon icon={faGear} />

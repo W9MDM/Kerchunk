@@ -43,6 +43,8 @@ export function DtmfPad({ connected, onSend }: DtmfPadProps) {
             <button
               onClick={send}
               disabled={!connected || !seq}
+              title={connected ? 'Send these DTMF tones to the linked node(s)' : 'Link a node first'}
+              aria-label="Send DTMF"
               className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-40"
             >
               <FontAwesomeIcon icon={faPaperPlane} />
