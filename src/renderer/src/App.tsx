@@ -9,6 +9,8 @@ import { NetworkTree } from './components/NetworkTree';
 import { NodeIdentity } from './components/NodeIdentity';
 import { SettingsModal } from './components/SettingsModal';
 import kerchunkIcon from './assets/kerchunk-icon.png';
+import { decodeG711Chunk } from '../../shared/audio';
+import { decodeMdcBursts, formatUnitId } from '../../shared/mdc1200';
 
 // Memoized so audio-level re-renders (~12/s) don't re-render these subtrees,
 // which would starve the renderer's main thread and drop outbound mic frames.
@@ -120,9 +122,14 @@ export default function App() {
   const [accent, setAccent] = useState('#007aff');
   const [pttKey, setPttKey] = useState('');
   const [pttMode, setPttMode] = useState<'hold' | 'toggle'>('hold');
+  const [mdcEnabled, setMdcEnabled] = useState(false);
+  const [mdcUnitId, setMdcUnitId] = useState('');
+  const [mdcTiming, setMdcTiming] = useState<'start' | 'end' | 'both'>('start');
   const audioEngineRef = useRef<AudioEngine | null>(null);
   const didAutoLink = useRef(false);
   const transmittingRef = useRef(false);
+  const rxMdcBuffer = useRef<number[]>([]);
+  const rxMdcSeen = useRef<Map<number, number>>(new Map());
 
   const log = (message: string) => setActivity((current) => [message, ...current].slice(0, 60));
 
@@ -150,8 +157,13 @@ export default function App() {
     accent,
     pttKey,
     pttMode,
+    mdcEnabled,
+    mdcUnitId,
+    mdcTiming,
     ...overrides,
   });
+
+  const persist = (patch: Partial<NodeSettings>) => window.electronAPI.saveSettings(buildSettings(patch));
 
   const handleScaleChange = (factor: number) => {
     setUiScale(factor);
@@ -182,8 +194,14 @@ export default function App() {
         setAccent(settings.accent);
         applyAccent(settings.accent);
       }
-      if (settings.pttKey !== undefined) setPttKey(settings.pttKey);
+      if (settings.pttKey !== undefined) {
+        setPttKey(settings.pttKey);
+        window.electronAPI.setHotkey(settings.pttKey); // register global hotkey on load
+      }
       if (settings.pttMode) setPttMode(settings.pttMode);
+      if (settings.mdcEnabled) setMdcEnabled(settings.mdcEnabled);
+      if (settings.mdcUnitId) setMdcUnitId(settings.mdcUnitId);
+      if (settings.mdcTiming) setMdcTiming(settings.mdcTiming);
       if (settings.myNode) void window.electronAPI.getNodeInfo(settings.myNode).then(setSelfInfo);
     });
     void window.electronAPI.getThemeState().then(setTheme);
@@ -194,8 +212,17 @@ export default function App() {
         log(payload.state);
       }),
       window.electronAPI.onProtocolConnections((payload) => setConnections(payload.connections)),
-      window.electronAPI.onProtocolAudio((payload) => getAudioEngine().playFrame(payload.frame)),
+      window.electronAPI.onProtocolAudio((payload) => {
+        getAudioEngine().playFrame(payload.frame);
+        // Buffer RX PCM for MDC1200 decode (bounded to ~2 s).
+        const pcm = decodeG711Chunk(new Uint8Array(payload.frame));
+        const buf = rxMdcBuffer.current;
+        for (let i = 0; i < pcm.length; i += 1) buf.push(pcm[i]);
+        if (buf.length > 16000) buf.splice(0, buf.length - 16000);
+      }),
       window.electronAPI.onProtocolDtmf((payload) => log(`DTMF from peer: ${payload.digit}`)),
+      // Global hotkey (window unfocused) toggles transmit.
+      window.electronAPI.onPttHotkey(() => handleTransmit(!transmittingRef.current)),
     ];
     return () => disposers.forEach((dispose) => dispose());
   }, []);
@@ -204,6 +231,24 @@ export default function App() {
     document.documentElement.classList.toggle('dark', theme.resolved === 'dark');
     document.documentElement.style.colorScheme = theme.resolved;
   }, [theme.resolved]);
+
+  // Decode incoming MDC1200 PTT-ID bursts from buffered RX audio (off the audio
+  // path). Dedupe repeats within 8 s so a held ID isn't logged every second.
+  useEffect(() => {
+    const id = setInterval(() => {
+      const buf = rxMdcBuffer.current;
+      if (buf.length < 1400) return;
+      const packets = decodeMdcBursts(Int16Array.from(buf));
+      if (buf.length > 2000) buf.splice(0, buf.length - 2000); // keep a little overlap
+      const now = performance.now();
+      for (const packet of packets) {
+        const last = rxMdcSeen.current.get(packet.unitId) ?? -Infinity;
+        if (now - last > 8000) log(`MDC1200 ID received: ${formatUnitId(packet.unitId)}`);
+        rxMdcSeen.current.set(packet.unitId, now);
+      }
+    }, 1000);
+    return () => clearInterval(id);
+  }, []);
 
   // Auto-reconnect permanent saved nodes once, on first load.
   useEffect(() => {
@@ -409,11 +454,24 @@ export default function App() {
 
   const handlePttKeyChange = (code: string) => {
     setPttKey(code);
+    window.electronAPI.setHotkey(code); // register globally (fires when unfocused)
     void window.electronAPI.saveSettings(buildSettings({ pttKey: code }));
   };
   const handlePttModeChange = (mode: 'hold' | 'toggle') => {
     setPttMode(mode);
     void window.electronAPI.saveSettings(buildSettings({ pttMode: mode }));
+  };
+  const handleMdcEnabledChange = (on: boolean) => {
+    setMdcEnabled(on);
+    void persist({ mdcEnabled: on });
+  };
+  const handleMdcUnitIdChange = (id: string) => {
+    setMdcUnitId(id);
+    void persist({ mdcUnitId: id });
+  };
+  const handleMdcTimingChange = (t: 'start' | 'end' | 'both') => {
+    setMdcTiming(t);
+    void persist({ mdcTiming: t });
   };
 
   // PTT hotkey: hold-to-talk or press-to-toggle, ignored while typing in a field.
@@ -714,6 +772,12 @@ export default function App() {
         pttMode={pttMode}
         onPttKeyChange={handlePttKeyChange}
         onPttModeChange={handlePttModeChange}
+        mdcEnabled={mdcEnabled}
+        mdcUnitId={mdcUnitId}
+        mdcTiming={mdcTiming}
+        onMdcEnabledChange={handleMdcEnabledChange}
+        onMdcUnitIdChange={handleMdcUnitIdChange}
+        onMdcTimingChange={handleMdcTimingChange}
         registered={registered}
         onRegister={() => void handleRegister()}
         onSave={() => void handleSaveSettings()}

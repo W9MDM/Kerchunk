@@ -13,6 +13,8 @@ export const IPC_CHANNELS = {
   PROTOCOL_HANGUP: 'protocol:hangup',
   PROTOCOL_TX_START: 'protocol:tx-start',
   PROTOCOL_TX_STOP: 'protocol:tx-stop',
+  PROTOCOL_SET_HOTKEY: 'protocol:set-hotkey',
+  PROTOCOL_PTT_HOTKEY: 'protocol:ptt-hotkey',
   PROTOCOL_AUDIO_TX: 'protocol:audio-tx',
   PROTOCOL_AUDIO_RX: 'protocol:audio-rx',
   PROTOCOL_STATE: 'protocol:state',
@@ -78,6 +80,12 @@ export interface NodeSettings {
   pttKey?: string;
   /** How the PTT hotkey behaves: hold to talk, or press to toggle. */
   pttMode?: 'hold' | 'toggle';
+  /** Transmit an MDC1200 PTT-ID burst. */
+  mdcEnabled?: boolean;
+  /** MDC1200 unit ID as 4-digit hex (e.g. "1234"). */
+  mdcUnitId?: string;
+  /** When to send the MDC1200 burst. */
+  mdcTiming?: 'start' | 'end' | 'both';
 }
 
 /** AllStarLink directory metadata for a node (identity header, list rows). */
@@ -197,6 +205,10 @@ export interface KerchunkBridge {
   sendAudioFrame(payload: ProtocolAudioPayload): Promise<void>;
   txStart(): void;
   txStop(): void;
+  /** Register the PTT hotkey globally (fires when the window is unfocused). */
+  setHotkey(code: string): void;
+  /** Global PTT hotkey was pressed (window unfocused). */
+  onPttHotkey(callback: () => void): () => void;
   onProtocolAudio(callback: (payload: ProtocolAudioPayload) => void): () => void;
   onProtocolState(callback: (payload: ProtocolStatePayload) => void): () => void;
   onProtocolConnections(callback: (payload: ProtocolConnectionsPayload) => void): () => void;

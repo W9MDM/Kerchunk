@@ -18,6 +18,15 @@ import { registerNode, type RegistrationResult } from './registration.js';
 import { DEFAULT_STATPOST_URL, buildKeyedUrl, buildStatusUrl, sendStatpost, type LinkState } from './stats.js';
 import { fetchNodeInfo, fetchNodeStats, type NodeInfo } from './nodeinfo.js';
 
+export type MdcTiming = 'start' | 'end' | 'both';
+export interface MdcConfig {
+  enabled: boolean;
+  unitId: number;
+  timing: MdcTiming;
+  /** Injected MDC1200 burst encoder (kept out of the protocol layer). */
+  encode?: (unitId: number) => Int16Array;
+}
+
 const FRAME_TYPE_NAMES: Record<number, string> = {
   1: 'DTMF',
   2: 'VOICE',
@@ -266,6 +275,11 @@ export class KerchunkNode extends EventEmitter<NodeEventMap> {
   private loggedTxVoice = false;
   private loggedRxVoice = false;
   private inboundEnabled = false;
+
+  // MDC1200 PTT-ID transmit: config + a real-time burst playout queue (one
+  // 20 ms frame per mix tick so the burst goes out at the correct baud).
+  private mdc: MdcConfig = { enabled: false, unitId: 0, timing: 'start' };
+  private mdcTxFrames: Int16Array[] = [];
 
   // Stats reporting (app_rpt statpost).
   private readonly reportStats: boolean;
@@ -624,7 +638,29 @@ export class KerchunkNode extends EventEmitter<NodeEventMap> {
   /** The operator keyed up (PTT press): tell every link to re-establish its
    * stream with a full frame so far nodes/repeaters cleanly key up, and send
    * RADIO_KEY on guest (web-transceiver) legs. */
+  /** Configure MDC1200 PTT-ID transmit (unit ID + when to send the burst). */
+  setMdcConfig(config: MdcConfig): void {
+    this.mdc = config;
+  }
+
+  /** Queue an MDC1200 burst for real-time playout to all links (mixTick drains it). */
+  private enqueueMdcBurst(): void {
+    if (!this.mdc.enabled || !this.mdc.unitId || !this.mdc.encode) {
+      return;
+    }
+    const burst = this.mdc.encode(this.mdc.unitId);
+    for (let i = 0; i < burst.length; i += this.frameSize) {
+      const frame = new Int16Array(this.frameSize);
+      frame.set(burst.subarray(i, i + this.frameSize));
+      this.mdcTxFrames.push(frame);
+    }
+    this.emit('state', `MDC1200 PTT ID ${this.mdc.unitId.toString(16).toUpperCase().padStart(4, '0')}`);
+  }
+
   notifyTransmitStart(): void {
+    if (this.mdc.timing === 'start' || this.mdc.timing === 'both') {
+      this.enqueueMdcBurst();
+    }
     for (const connection of this.byLocalCall.values()) {
       if (connection.up && !connection.monitor) {
         connection.leg.markKeyStart();
@@ -636,6 +672,9 @@ export class KerchunkNode extends EventEmitter<NodeEventMap> {
   /** The operator released PTT: RADIO_UNKEY on guest legs (node links unkey
    * implicitly when voice frames stop). */
   notifyTransmitStop(): void {
+    if (this.mdc.timing === 'end' || this.mdc.timing === 'both') {
+      this.enqueueMdcBurst();
+    }
     for (const connection of this.byLocalCall.values()) {
       if (connection.up && !connection.monitor) {
         connection.leg.unkeyRadio(); // no-op on node (newkey) links
@@ -839,6 +878,21 @@ export class KerchunkNode extends EventEmitter<NodeEventMap> {
    */
   mixTick(): void {
     const upLegs = [...this.byLocalCall.values()].filter((c) => c.up);
+
+    // MDC1200 burst playout: send one 20 ms frame per tick to every link at the
+    // correct baud, ahead of (and instead of) the mic for the burst's duration.
+    if (this.mdcTxFrames.length > 0) {
+      const frame = this.mdcTxFrames.shift()!;
+      const encoded = this.codec.encode(frame);
+      for (const c of upLegs) {
+        if (!c.monitor) {
+          c.leg.sendAudio(encoded);
+          this.txVoiceCount += 1;
+        }
+        c.rxQueue.shift(); // keep peer RX from backing up during the burst
+      }
+      return;
+    }
     // setInterval ticks slightly slower than the 50 fps audio rate, so process
     // ALL buffered frames each tick (not just one) — otherwise we fall behind and
     // drop frames, underrunning the jitter buffer (choppy audio both ways).
