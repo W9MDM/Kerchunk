@@ -191,6 +191,17 @@ export default function App() {
     }
   };
 
+  /** Refresh button: re-sync the direct links (repopulate + re-fetch info) and
+   * the network map. */
+  const handleRefresh = async () => {
+    try {
+      await window.electronAPI.refreshConnections();
+    } catch {
+      // ignore — topology refresh still runs below
+    }
+    await refreshTopology();
+  };
+
   useEffect(() => {
     if (connections.length === 0) {
       setTopology(null);
@@ -517,11 +528,11 @@ export default function App() {
           onSort={setSortMode}
           onUnlink={(label) => void handleDisconnect(label)}
           onUnlinkAll={() => void handleDisconnectAll()}
-          onRefresh={() => void refreshTopology()}
+          onRefresh={() => void handleRefresh()}
         />
 
         {/* Network map (tree of the mesh you're linked into) */}
-        <NetworkTree topology={topology} onRefresh={() => void refreshTopology()} />
+        <NetworkTree topology={topology} onRefresh={() => void handleRefresh()} />
 
         {/* Saved nodes */}
         {savedNodes.length > 0 && (

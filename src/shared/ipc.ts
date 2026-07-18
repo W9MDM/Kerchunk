@@ -19,6 +19,7 @@ export const IPC_CHANNELS = {
   PROTOCOL_CONNECTIONS: 'protocol:connections',
   PROTOCOL_DTMF: 'protocol:dtmf',
   PROTOCOL_TOPOLOGY: 'protocol:topology',
+  PROTOCOL_REFRESH_CONNECTIONS: 'protocol:refresh-connections',
   SETTINGS_GET: 'settings:get',
   SETTINGS_SET: 'settings:set',
 } as const;
@@ -182,6 +183,7 @@ export interface KerchunkBridge {
   getSettings(): Promise<NodeSettings>;
   saveSettings(settings: NodeSettings): Promise<void>;
   getTopology(): Promise<Topology>;
+  refreshConnections(): Promise<void>;
   sendAudioFrame(payload: ProtocolAudioPayload): Promise<void>;
   txStart(): void;
   txStop(): void;

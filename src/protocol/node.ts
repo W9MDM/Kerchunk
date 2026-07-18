@@ -645,6 +645,15 @@ export class KerchunkNode extends EventEmitter<NodeEventMap> {
     }));
   }
 
+  /**
+   * Re-fetch directory metadata for every current link and re-emit the
+   * connection list, so the Linked Nodes view repopulates on demand (Refresh).
+   */
+  async refreshConnections(): Promise<void> {
+    await Promise.all([...this.byLocalCall.values()].map((c) => this.loadNodeInfo(c)));
+    this.emitConnections();
+  }
+
   /** AllStarLink directory metadata for our own node, for the identity header. */
   async getSelfInfo(): Promise<NodeInfo | null> {
     if (!this.nodeNumber) {
