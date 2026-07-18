@@ -5,6 +5,16 @@ export default defineConfig({
   main: {
     build: {
       outDir: 'dist/main',
+      // Emit CommonJS so Electron loads the main process reliably. Package
+      // "type": "module" would make a .js main ESM, which Electron's loader
+      // rejects at startup ("Cannot read properties of undefined (reading
+      // 'exports')"). A .cjs entry sidesteps the ESM/CJS interop entirely.
+      rollupOptions: {
+        output: {
+          format: 'cjs',
+          entryFileNames: 'index.cjs',
+        },
+      },
     },
     plugins: [externalizeDepsPlugin()],
   },

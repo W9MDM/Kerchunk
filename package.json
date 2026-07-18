@@ -6,7 +6,7 @@
   "author": "W9MDM",
   "license": "MIT",
   "copyright": "Copyright © 2026 W9MDM",
-  "main": "./dist/main/index.js",
+  "main": "./dist/main/index.cjs",
   "type": "module",
   "scripts": {
     "dev": "electron-vite dev",
