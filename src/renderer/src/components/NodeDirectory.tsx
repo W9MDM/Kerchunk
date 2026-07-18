@@ -83,7 +83,7 @@ export function NodeDirectory({ open, onClose, onConnect, onSave, savedNumbers }
             <FontAwesomeIcon icon={faTowerBroadcast} /> Node directory
             {all.length > 0 && <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">{all.length.toLocaleString()}</span>}
           </h2>
-          <button onClick={onClose} className="rounded-lg px-2 py-1 text-sm text-muted-foreground transition hover:bg-accent hover:text-foreground">
+          <button onClick={onClose} title="Close" aria-label="Close directory" className="rounded-lg px-2 py-1 text-sm text-muted-foreground transition hover:bg-accent hover:text-foreground">
             <FontAwesomeIcon icon={faXmark} />
           </button>
         </div>
@@ -138,7 +138,8 @@ export function NodeDirectory({ open, onClose, onConnect, onSave, savedNumbers }
                   <div className="flex shrink-0 items-center gap-1.5">
                     <button
                       onClick={() => onSave({ number: n.node, note: n.description || undefined, callsign: n.callsign || undefined, description: n.description || undefined, location: n.location || undefined })}
-                      title={savedNumbers.has(n.node) ? 'Saved' : 'Save to my nodes'}
+                      title={savedNumbers.has(n.node) ? 'Already in your saved nodes' : 'Save to my nodes'}
+                      aria-label={savedNumbers.has(n.node) ? 'Saved' : 'Save to my nodes'}
                       className={`rounded-full border px-2.5 py-1 text-xs transition ${savedNumbers.has(n.node) ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:bg-accent'}`}
                     >
                       <FontAwesomeIcon icon={faThumbtack} />
