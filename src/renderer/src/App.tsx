@@ -125,11 +125,13 @@ export default function App() {
   const [mdcEnabled, setMdcEnabled] = useState(false);
   const [mdcUnitId, setMdcUnitId] = useState('');
   const [mdcTiming, setMdcTiming] = useState<'start' | 'end' | 'both'>('start');
+  const [heardMdc, setHeardMdc] = useState<string | null>(null);
   const audioEngineRef = useRef<AudioEngine | null>(null);
   const didAutoLink = useRef(false);
   const transmittingRef = useRef(false);
   const rxMdcBuffer = useRef<number[]>([]);
   const rxMdcSeen = useRef<Map<number, number>>(new Map());
+  const heardMdcTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const log = (message: string) => setActivity((current) => [message, ...current].slice(0, 60));
 
@@ -242,9 +244,14 @@ export default function App() {
       if (buf.length > 2000) buf.splice(0, buf.length - 2000); // keep a little overlap
       const now = performance.now();
       for (const packet of packets) {
+        const id = formatUnitId(packet.unitId);
         const last = rxMdcSeen.current.get(packet.unitId) ?? -Infinity;
-        if (now - last > 8000) log(`MDC1200 ID received: ${formatUnitId(packet.unitId)}`);
+        if (now - last > 8000) log(`MDC1200 ID received: ${id}`);
         rxMdcSeen.current.set(packet.unitId, now);
+        // Surface the last-heard ID on the node identity card for ~15 s.
+        setHeardMdc(id);
+        clearTimeout(heardMdcTimer.current);
+        heardMdcTimer.current = setTimeout(() => setHeardMdc(null), 15000);
       }
     }, 1000);
     return () => clearInterval(id);
@@ -586,6 +593,7 @@ export default function App() {
           transmitting={transmitting}
           receiving={receiving}
           guest={guestMode}
+          heardMdc={heardMdc}
         />
 
         {/* Transmit */}

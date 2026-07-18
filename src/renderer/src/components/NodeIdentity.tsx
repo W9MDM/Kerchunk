@@ -11,6 +11,7 @@ interface NodeIdentityProps {
   transmitting: boolean;
   receiving: boolean;
   guest: boolean;
+  heardMdc?: string | null;
 }
 
 function PinIcon() {
@@ -43,6 +44,7 @@ export const NodeIdentity = memo(function NodeIdentity({
   transmitting,
   receiving,
   guest,
+  heardMdc,
 }: NodeIdentityProps) {
   return (
     <section className="relative overflow-hidden rounded-2xl bg-primary p-5 text-white shadow-card">
@@ -84,11 +86,19 @@ export const NodeIdentity = memo(function NodeIdentity({
         )}
       </div>
 
-      <div className="mt-4 flex items-center justify-between text-xs">
+      <div className="mt-4 flex items-center justify-between gap-2 text-xs">
         <span className="rounded-full bg-white/15 px-2.5 py-1 font-medium">{state}</span>
-        <span className="rounded-full bg-white/15 px-2.5 py-1 font-medium">
-          {linkedCount === 1 ? '1 link' : `${linkedCount} links`}
-        </span>
+        <div className="flex items-center gap-2">
+          {heardMdc && (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-300 px-2.5 py-1 font-semibold text-amber-950">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-700" />
+              MDC {heardMdc}
+            </span>
+          )}
+          <span className="rounded-full bg-white/15 px-2.5 py-1 font-medium">
+            {linkedCount === 1 ? '1 link' : `${linkedCount} links`}
+          </span>
+        </div>
       </div>
     </section>
   );
