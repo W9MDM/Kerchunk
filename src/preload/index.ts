@@ -36,6 +36,7 @@ const electronAPI: KerchunkBridge = {
   hangup: () => ipcRenderer.invoke(IPC_CHANNELS.PROTOCOL_HANGUP),
   getSettings: () => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_GET),
   saveSettings: (settings: NodeSettings) => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_SET, settings),
+  setZoom: (factor: number) => ipcRenderer.invoke(IPC_CHANNELS.WINDOW_SET_ZOOM, factor),
   getTopology: () => ipcRenderer.invoke(IPC_CHANNELS.PROTOCOL_TOPOLOGY),
   refreshConnections: () => ipcRenderer.invoke(IPC_CHANNELS.PROTOCOL_REFRESH_CONNECTIONS),
   sendAudioFrame: (payload: ProtocolAudioPayload) => {

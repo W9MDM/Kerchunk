@@ -92,6 +92,7 @@ export default function App() {
   const [transmitting, setTransmitting] = useState(false);
   const [trace, setTraceEnabled] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [uiScale, setUiScale] = useState(0.75);
   const audioEngineRef = useRef<AudioEngine | null>(null);
   const didAutoLink = useRef(false);
 
@@ -117,8 +118,15 @@ export default function App() {
     operatorName: operatorName.trim(),
     wtPassword,
     savedNodes,
+    uiScale,
     ...overrides,
   });
+
+  const handleScaleChange = (factor: number) => {
+    setUiScale(factor);
+    void window.electronAPI.setZoom(factor);
+    void window.electronAPI.saveSettings(buildSettings({ uiScale: factor }));
+  };
 
   useEffect(() => {
     void window.electronAPI.getSettings().then((settings) => {
@@ -129,6 +137,10 @@ export default function App() {
       if (settings.operatorName) setOperatorName(settings.operatorName);
       if (settings.wtPassword) setWtPassword(settings.wtPassword);
       if (settings.savedNodes) setSavedNodes(settings.savedNodes);
+      if (settings.uiScale) {
+        setUiScale(settings.uiScale);
+        void window.electronAPI.setZoom(settings.uiScale);
+      }
       if (settings.myNode) void window.electronAPI.getNodeInfo(settings.myNode).then(setSelfInfo);
     });
     void window.electronAPI.getThemeState().then(setTheme);
@@ -618,6 +630,8 @@ export default function App() {
         setWtPassword={setWtPassword}
         theme={theme}
         onThemeChange={(m) => void handleThemeChange(m)}
+        uiScale={uiScale}
+        onScaleChange={handleScaleChange}
         registered={registered}
         onRegister={() => void handleRegister()}
         onSave={() => void handleSaveSettings()}

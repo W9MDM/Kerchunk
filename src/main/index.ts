@@ -99,9 +99,9 @@ function createWindow() {
     void mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
   }
 
-  // Render the whole UI at 75% ("shrink everything by 25%").
+  // Render the UI at the operator's saved text size (defaults to 75%).
   mainWindow.webContents.on('did-finish-load', () => {
-    mainWindow?.webContents.setZoomFactor(0.75);
+    mainWindow?.webContents.setZoomFactor(readNodeSettings().uiScale ?? 0.75);
   });
 
   mainWindow.once('ready-to-show', () => {
@@ -259,6 +259,11 @@ app.whenReady().then(() => {
 
   ipcMain.handle(IPC_CHANNELS.SETTINGS_SET, (_event, settings: NodeSettings) => {
     writeNodeSettings(settings);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.WINDOW_SET_ZOOM, (_event, factor: number) => {
+    const clamped = Math.max(0.5, Math.min(1.5, Number(factor) || 0.75));
+    mainWindow?.webContents.setZoomFactor(clamped);
   });
 
   ipcMain.handle(IPC_CHANNELS.PROTOCOL_SET_DEBUG, (_event, enabled: boolean) => {
