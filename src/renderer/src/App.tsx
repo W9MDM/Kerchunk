@@ -129,6 +129,7 @@ export default function App() {
   const rxMdcBuffer = useRef<number[]>([]);
   const rxMdcSeen = useRef<Map<number, number>>(new Map());
   const prevConnRef = useRef<Set<string> | null>(null);
+  const prevUpRef = useRef<Set<string> | null>(null);
   const heardMdcTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const log = (message: string) => setActivity((current) => [message, ...current].slice(0, 60));
@@ -162,6 +163,7 @@ export default function App() {
     mdcTiming,
     mdcLevel,
     mdcPreamble,
+    mode,
     ...overrides,
   });
 
@@ -206,6 +208,7 @@ export default function App() {
       if (settings.mdcTiming) setMdcTiming(settings.mdcTiming);
       if (typeof settings.mdcLevel === 'number') setMdcLevel(settings.mdcLevel);
       if (typeof settings.mdcPreamble === 'number') setMdcPreamble(settings.mdcPreamble);
+      if (settings.mode) setMode(settings.mode);
       if (settings.myNode) void window.electronAPI.getNodeInfo(settings.myNode).then(setSelfInfo);
     });
     void window.electronAPI.getThemeState().then(setTheme);
@@ -362,15 +365,24 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [savedNodes]);
 
-  // Speak connect/disconnect announcements as links come and go.
+  // Speak connect/disconnect/failure announcements as links come and go.
+  // "Connected" only fires once a call is actually up (not while still calling);
+  // a leg that vanishes without ever coming up is a failed call, not a disconnect.
   useEffect(() => {
-    const now = new Set(connections.map((c) => c.label));
-    const prev = prevConnRef.current;
-    if (prev) {
-      for (const label of now) if (!prev.has(label)) speak(`Connected to ${spellNode(label)}`);
-      for (const label of prev) if (!now.has(label)) speak(`${spellNode(label)} disconnected`);
+    const allNow = new Set(connections.map((c) => c.label));
+    const upNow = new Set(connections.filter((c) => c.up).map((c) => c.label));
+    const prevAll = prevConnRef.current;
+    const prevUp = prevUpRef.current;
+    if (prevAll && prevUp) {
+      for (const label of upNow) if (!prevUp.has(label)) speak(`Connected to ${spellNode(label)}`);
+      for (const label of prevAll) {
+        if (allNow.has(label)) continue;
+        if (prevUp.has(label)) speak(`${spellNode(label)} disconnected`);
+        else speak(`Call to ${spellNode(label)} failed`);
+      }
     }
-    prevConnRef.current = now;
+    prevConnRef.current = allNow;
+    prevUpRef.current = upNow;
   }, [connections]);
 
   useEffect(() => {
@@ -549,6 +561,10 @@ export default function App() {
     setPttMode(mode);
     void window.electronAPI.saveSettings(buildSettings({ pttMode: mode }));
   };
+  const handleModeChange = (next: 'node' | 'guest') => {
+    setMode(next);
+    void window.electronAPI.saveSettings(buildSettings({ mode: next }));
+  };
   const handleMdcEnabledChange = (on: boolean) => {
     setMdcEnabled(on);
     void persist({ mdcEnabled: on });
@@ -644,7 +660,7 @@ export default function App() {
           <div className="flex items-center gap-2">
             <div className="flex rounded-lg bg-muted p-0.5 text-xs font-medium">
               <button
-                onClick={() => setMode('node')}
+                onClick={() => handleModeChange('node')}
                 className={`rounded-md px-3 py-1.5 transition ${
                   mode === 'node' ? 'bg-connected text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'
                 }`}
@@ -652,7 +668,7 @@ export default function App() {
                 Node
               </button>
               <button
-                onClick={() => setMode('guest')}
+                onClick={() => handleModeChange('guest')}
                 className={`rounded-md px-3 py-1.5 transition ${
                   mode === 'guest' ? 'bg-tx text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'
                 }`}

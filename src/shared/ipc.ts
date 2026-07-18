@@ -100,6 +100,8 @@ export interface NodeSettings {
   mdcLevel?: number;
   /** MDC1200 preamble length in 0x55 bytes. */
   mdcPreamble?: number;
+  /** Last-used connection mode: real node vs. Web Transceiver guest. */
+  mode?: 'node' | 'guest';
 }
 
 /** AllStarLink directory metadata for a node (identity header, list rows). */
@@ -177,6 +179,8 @@ export interface ProtocolConnectionInfo {
   host: string;
   port: number;
   state: string;
+  /** True once the call handshake completed; false while still calling. */
+  up?: boolean;
   callsign?: string;
   location?: string;
   description?: string;
