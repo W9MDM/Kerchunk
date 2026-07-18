@@ -36,6 +36,7 @@
     "electron-vite": "^3.0.0",
     "eslint": "^9.15.0",
     "eslint-plugin-react-hooks": "^5.0.0",
+    "jimp": "^0.22.12",
     "jsdom": "^25.0.1",
     "postcss": "^8.4.49",
     "prettier": "^3.7.0",
@@ -66,11 +67,15 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         },
         {
           "target": "portable",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "icon": "build/icon.png",
@@ -89,12 +94,17 @@
       "artifactName": "${productName}-${version}-Portable.${ext}"
     },
     "mac": {
-      "target": ["dmg"],
+      "target": [
+        "dmg"
+      ],
       "icon": "build/icon.png",
       "category": "public.app-category.utilities"
     },
     "linux": {
-      "target": ["AppImage", "deb"],
+      "target": [
+        "AppImage",
+        "deb"
+      ],
       "icon": "build/icon.png",
       "category": "Network",
       "maintainer": "W9MDM"
