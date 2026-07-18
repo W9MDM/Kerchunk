@@ -25,8 +25,10 @@ export interface MdcConfig {
   timing: MdcTiming;
   /** Burst amplitude 0..1 (operator-adjustable level). */
   level: number;
+  /** Preamble length in 0x55 bytes (operator-adjustable). */
+  preambleBytes: number;
   /** Injected MDC1200 burst encoder (kept out of the protocol layer). */
-  encode?: (unitId: number, amplitude: number) => Int16Array;
+  encode?: (unitId: number, amplitude: number, preambleBytes: number) => Int16Array;
 }
 
 const FRAME_TYPE_NAMES: Record<number, string> = {
@@ -280,7 +282,7 @@ export class KerchunkNode extends EventEmitter<NodeEventMap> {
 
   // MDC1200 PTT-ID transmit: config + a real-time burst playout queue (one
   // 20 ms frame per mix tick so the burst goes out at the correct baud).
-  private mdc: MdcConfig = { enabled: false, unitId: 0, timing: 'start', level: 0.12 };
+  private mdc: MdcConfig = { enabled: false, unitId: 0, timing: 'start', level: 0.12, preambleBytes: 24 };
   private mdcTxFrames: Int16Array[] = [];
 
   // Stats reporting (app_rpt statpost).
@@ -652,7 +654,7 @@ export class KerchunkNode extends EventEmitter<NodeEventMap> {
     if (!this.mdc.enabled || !this.mdc.unitId || !this.mdc.encode) {
       return;
     }
-    const burst = this.mdc.encode(this.mdc.unitId, this.mdc.level);
+    const burst = this.mdc.encode(this.mdc.unitId, this.mdc.level, this.mdc.preambleBytes);
     for (let i = 0; i < burst.length; i += this.frameSize) {
       const frame = new Int16Array(this.frameSize);
       frame.set(burst.subarray(i, i + this.frameSize));

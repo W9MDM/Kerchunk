@@ -62,10 +62,12 @@ interface SettingsModalProps {
   mdcUnitId: string;
   mdcTiming: 'start' | 'end' | 'both';
   mdcLevel: number;
+  mdcPreamble: number;
   onMdcEnabledChange: (on: boolean) => void;
   onMdcUnitIdChange: (id: string) => void;
   onMdcTimingChange: (t: 'start' | 'end' | 'both') => void;
   onMdcLevelChange: (level: number) => void;
+  onMdcPreambleChange: (bytes: number) => void;
   registered: boolean;
   onRegister: () => void;
   onSave: () => void;
@@ -351,6 +353,20 @@ export function SettingsModal(props: SettingsModalProps) {
                     max={100}
                     value={props.mdcLevel}
                     onChange={(e) => props.onMdcLevelChange(Number(e.target.value))}
+                    className="w-full accent-primary"
+                  />
+                </div>
+                <div>
+                  <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
+                    <span>Preamble</span>
+                    <span className="tabular-nums">{props.mdcPreamble} bytes · {Math.round((props.mdcPreamble * 8) / 1.2)} ms</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={7}
+                    max={64}
+                    value={props.mdcPreamble}
+                    onChange={(e) => props.onMdcPreambleChange(Number(e.target.value))}
                     className="w-full accent-primary"
                   />
                 </div>

@@ -28,7 +28,6 @@ const SYNC = [0x07, 0x09, 0x2a, 0x44, 0x6f];
 // long the sustained 1800 Hz tone becomes annoying. Real off-air 6402 bursts
 // carry little sustained clean 1800 Hz, so ~24 bytes (~200 ms) is a good balance.
 const PREAMBLE_BYTES = 24;
-const LEADER = [...new Array(PREAMBLE_BYTES).fill(0x55), ...SYNC];
 
 function reverseBits(value: number, bits: number): number {
   let out = 0;
@@ -117,8 +116,10 @@ export function encodeMdcBurst(
   amplitude = 0.18,
   tailMs = 0,
   leadMs = 250,
+  preambleBytes: number = PREAMBLE_BYTES,
 ): Int16Array {
-  const bytes = LEADER.concat(buildMdcFrame(op, arg, unitId));
+  const leader = [...new Array(Math.max(3, preambleBytes)).fill(0x55), ...SYNC];
+  const bytes = leader.concat(buildMdcFrame(op, arg, unitId));
   const incrSame = Math.round((FREQ_SAME / sampleRate) * CIRCLE);
   const incrDiff = Math.round((FREQ_DIFF / sampleRate) * CIRCLE);
   const samplesPerBit = sampleRate / BAUD;

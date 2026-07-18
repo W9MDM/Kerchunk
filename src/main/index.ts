@@ -273,7 +273,9 @@ function applyMdcConfig() {
     unitId: parseUnitId(s.mdcUnitId ?? '') ?? 0,
     timing: s.mdcTiming ?? 'start',
     level,
-    encode: (id, amplitude) => encodeMdcBurst(id, undefined, undefined, 8000, amplitude),
+    preambleBytes: s.mdcPreamble ?? 24,
+    encode: (id, amplitude, preambleBytes) =>
+      encodeMdcBurst(id, undefined, undefined, 8000, amplitude, 0, 250, preambleBytes),
   });
 }
 
