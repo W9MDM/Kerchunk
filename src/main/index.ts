@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, Menu, nativeTheme } from 'electron';
+import { app, BrowserWindow, ipcMain, Menu, nativeTheme, screen } from 'electron';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -83,6 +83,22 @@ function writeNodeSettings(settings: NodeSettings) {
   writePreferences({ ...readPreferences(), nodeSettings: settings });
 }
 
+/** Show the window on-screen and bring it to the front. Recenters if it somehow
+ * landed outside every connected display (the "only in the taskbar" case). */
+function revealWindow() {
+  if (!mainWindow) return;
+  const b = mainWindow.getBounds();
+  const onScreen = screen.getAllDisplays().some((d) => {
+    const wa = d.workArea;
+    return b.x < wa.x + wa.width && b.x + b.width > wa.x && b.y < wa.y + wa.height && b.y + b.height > wa.y;
+  });
+  if (!onScreen) mainWindow.center();
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
+  mainWindow.moveTop();
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     // Sized to the app's content column at 75% zoom (see setZoomFactor below),
@@ -91,7 +107,7 @@ function createWindow() {
     height: 760,
     minWidth: 340,
     minHeight: 460,
-    useContentSize: true,
+    center: true,
     title: 'Kerchunk',
     show: false,
     autoHideMenuBar: true,
@@ -123,14 +139,14 @@ function createWindow() {
   // Render the UI at the operator's saved text size (defaults to 75%) and show.
   mainWindow.webContents.on('did-finish-load', () => {
     mainWindow?.webContents.setZoomFactor(readNodeSettings().uiScale ?? 0.75);
-    mainWindow?.show();
+    revealWindow();
   });
 
-  mainWindow.once('ready-to-show', () => mainWindow?.show());
+  mainWindow.once('ready-to-show', () => revealWindow());
 
   // Fallback: never leave the window stuck hidden if the events don't fire.
   setTimeout(() => {
-    if (mainWindow && !mainWindow.isVisible()) mainWindow.show();
+    if (mainWindow && !mainWindow.isVisible()) revealWindow();
   }, 4000);
 
   mainWindow.on('closed', () => {
