@@ -42,4 +42,5 @@ export {
   faRightFromBracket,
   faIdCard,
   faCircleInfo,
+  faWandMagicSparkles,
 } from '@fortawesome/free-solid-svg-icons';

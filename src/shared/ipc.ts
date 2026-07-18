@@ -111,6 +111,8 @@ export interface NodeSettings {
   audioInput?: string;
   /** Selected speaker deviceId ('' / undefined = system default). */
   audioOutput?: string;
+  /** True once the first-run setup wizard has been completed or skipped. */
+  setupComplete?: boolean;
   /** Keep running in the tray when the window is closed (instead of quitting). */
   closeToTray?: boolean;
   /** Launch Kerchunk automatically when you sign in. */
