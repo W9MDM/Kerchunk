@@ -12,6 +12,9 @@ import {
   faThumbtack,
   faTrash,
   faVolumeHigh,
+  faSatelliteDish,
+  faFloppyDisk,
+  faClockRotateLeft,
 } from '../icons';
 
 const MODIFIER_CODES = new Set([
@@ -64,7 +67,7 @@ const scaleOptions: Array<{ value: number; label: string }> = [
 ];
 const accentPresets = ['#007aff', '#5b62f0', '#8b5cf6', '#14b8a6', '#34c759', '#ff9500', '#ff3b30', '#ff2d92'];
 
-type Tab = 'node' | 'saved' | 'hotkey' | 'audio' | 'mdc' | 'appearance';
+type Tab = 'node' | 'saved' | 'hotkey' | 'audio' | 'mdc' | 'appearance' | 'general';
 const TABS: Array<{ id: Tab; label: string; icon: typeof faUser }> = [
   { id: 'node', label: 'Node', icon: faUser },
   { id: 'saved', label: 'Saved', icon: faListUl },
@@ -72,6 +75,7 @@ const TABS: Array<{ id: Tab; label: string; icon: typeof faUser }> = [
   { id: 'audio', label: 'Audio', icon: faVolumeHigh },
   { id: 'mdc', label: 'MDC1200', icon: faTowerBroadcast },
   { id: 'appearance', label: 'Appearance', icon: faSliders },
+  { id: 'general', label: 'General', icon: faSatelliteDish },
 ];
 
 interface SettingsModalProps {
@@ -108,6 +112,12 @@ interface SettingsModalProps {
   iaxSecret: string;
   onIaxUserChange: (v: string) => void;
   onIaxSecretChange: (v: string) => void;
+  closeToTray: boolean;
+  launchOnStartup: boolean;
+  onCloseToTrayToggle: (on: boolean) => void;
+  onLaunchOnStartupToggle: (on: boolean) => void;
+  onExportSettings: () => void;
+  onImportSettings: () => void;
   mdcEnabled: boolean;
   mdcUnitId: string;
   mdcTiming: 'start' | 'end' | 'both';
@@ -474,6 +484,41 @@ export function SettingsModal(props: SettingsModalProps) {
                     </button>
                   ))}
                 </div>
+              </div>
+            </div>
+          )}
+
+          {tab === 'general' && (
+            <div className="space-y-5">
+              <div>
+                <h3 className={sectionLabel}>Background &amp; startup</h3>
+                <div className="space-y-2.5">
+                  <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <input type="checkbox" checked={props.launchOnStartup} onChange={(e) => props.onLaunchOnStartupToggle(e.target.checked)} />
+                    Launch Kerchunk when I sign in
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <input type="checkbox" checked={props.closeToTray} onChange={(e) => props.onCloseToTrayToggle(e.target.checked)} />
+                    Keep running in the tray when the window is closed
+                  </label>
+                </div>
+                <p className="mt-1.5 text-xs text-muted-foreground">
+                  With tray mode on, closing the window hides it (your links stay up); use the tray icon to reopen or quit.
+                </p>
+              </div>
+              <div>
+                <h3 className={sectionLabel}>Backup</h3>
+                <div className="flex gap-2">
+                  <button onClick={props.onExportSettings} className="flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium transition hover:bg-accent">
+                    <FontAwesomeIcon icon={faFloppyDisk} /> Export…
+                  </button>
+                  <button onClick={props.onImportSettings} className="flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium transition hover:bg-accent">
+                    <FontAwesomeIcon icon={faClockRotateLeft} /> Import…
+                  </button>
+                </div>
+                <p className="mt-1.5 text-xs text-muted-foreground">
+                  Export your settings and saved nodes to a JSON file for backup, or to move Kerchunk to another machine.
+                </p>
               </div>
             </div>
           )}

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, globalShortcut, ipcMain, Menu, nativeTheme, screen } from 'electron';
+import { app, BrowserWindow, dialog, globalShortcut, ipcMain, Menu, nativeImage, nativeTheme, screen, Tray } from 'electron';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -27,6 +27,8 @@ const __dirname = path.dirname(__filename);
 
 let mainWindow: BrowserWindow | null = null;
 let protocolNode: KerchunkNode | null = null;
+let tray: Tray | null = null;
+let isQuitting = false;
 // Computed lazily (after app is ready) — calling app.getPath() at module top
 // level is fragile and can throw during startup.
 const preferencesPath = () => path.join(app.getPath('userData'), 'preferences.json');
@@ -185,17 +187,64 @@ function createWindow() {
   // Remember the window size/position across restarts.
   mainWindow.on('resize', saveWindowBounds);
   mainWindow.on('move', saveWindowBounds);
-  mainWindow.on('close', () => {
+  mainWindow.on('close', (event) => {
     clearTimeout(saveBoundsTimer);
     if (mainWindow && !mainWindow.isMinimized() && !mainWindow.isMaximized()) {
       const { width, height, x, y } = mainWindow.getBounds();
       writePreferences({ ...readPreferences(), windowBounds: { width, height, x, y } });
+    }
+    // Close-to-tray: hide the window and keep the node running in the background.
+    if (!isQuitting && readNodeSettings().closeToTray) {
+      event.preventDefault();
+      mainWindow?.hide();
     }
   });
 
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
+}
+
+/** Resolve the tray/app icon path (dev vs packaged). */
+function iconPath(): string {
+  return app.isPackaged
+    ? path.join(process.resourcesPath, 'icon.png')
+    : path.join(app.getAppPath(), 'build', 'icon.png');
+}
+
+/** System-tray icon with show/hide/quit, so the app can run in the background. */
+function createTray() {
+  if (tray) return;
+  try {
+    let image = nativeImage.createFromPath(iconPath());
+    if (image.isEmpty()) return; // no icon available — skip the tray rather than show a blank
+    image = image.resize({ width: 16, height: 16 });
+    tray = new Tray(image);
+    tray.setToolTip('Kerchunk');
+    tray.setContextMenu(
+      Menu.buildFromTemplate([
+        { label: 'Show Kerchunk', click: () => revealWindow() },
+        { label: 'Hide', click: () => mainWindow?.hide() },
+        { type: 'separator' },
+        { label: 'Quit', click: () => { isQuitting = true; app.quit(); } },
+      ]),
+    );
+    tray.on('click', () => {
+      if (mainWindow?.isVisible() && mainWindow.isFocused()) mainWindow.hide();
+      else revealWindow();
+    });
+  } catch (error) {
+    logMain(`tray init failed: ${String(error)}`);
+  }
+}
+
+/** Apply the "launch at login" preference (best-effort; unsupported on some Linux). */
+function applyLoginItem(enabled: boolean) {
+  try {
+    app.setLoginItemSettings({ openAtLogin: enabled });
+  } catch (error) {
+    logMain(`setLoginItemSettings failed: ${String(error)}`);
+  }
 }
 
 function broadcastTheme(mode: ThemeMode = readThemePreference()) {
@@ -364,6 +413,8 @@ app.whenReady().then(() => {
   // The app uses an in-app icon menu (renderer); no native menu bar.
   Menu.setApplicationMenu(null);
   createWindow();
+  createTray();
+  applyLoginItem(readNodeSettings().launchOnStartup ?? false);
 
   ipcMain.handle(THEME_CHANNELS.GET_STATE, () => {
     const mode = readThemePreference();
@@ -480,6 +531,44 @@ app.whenReady().then(() => {
   ipcMain.handle(IPC_CHANNELS.SETTINGS_SET, (_event, settings: NodeSettings) => {
     writeNodeSettings(settings);
     applyMdcConfig();
+    applyLoginItem(settings.launchOnStartup ?? false);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.SETTINGS_EXPORT, async (_event, settings: NodeSettings) => {
+    const options = {
+      title: 'Export Kerchunk settings',
+      defaultPath: 'kerchunk-settings.json',
+      filters: [{ name: 'JSON', extensions: ['json'] }],
+    };
+    const result = mainWindow
+      ? await dialog.showSaveDialog(mainWindow, options)
+      : await dialog.showSaveDialog(options);
+    if (result.canceled || !result.filePath) return false;
+    writeFileSync(result.filePath, JSON.stringify(settings ?? readNodeSettings(), null, 2));
+    return true;
+  });
+
+  ipcMain.handle(IPC_CHANNELS.SETTINGS_IMPORT, async () => {
+    const options = {
+      title: 'Import Kerchunk settings',
+      properties: ['openFile' as const],
+      filters: [{ name: 'JSON', extensions: ['json'] }],
+    };
+    const result = mainWindow
+      ? await dialog.showOpenDialog(mainWindow, options)
+      : await dialog.showOpenDialog(options);
+    if (result.canceled || result.filePaths.length === 0) return null;
+    try {
+      const parsed = JSON.parse(readFileSync(result.filePaths[0], 'utf8')) as NodeSettings;
+      if (!parsed || typeof parsed !== 'object') return null;
+      writeNodeSettings(parsed);
+      applyMdcConfig();
+      applyLoginItem(parsed.launchOnStartup ?? false);
+      return parsed;
+    } catch (error) {
+      logMain(`settings import failed: ${String(error)}`);
+      return null;
+    }
   });
 
   ipcMain.handle(IPC_CHANNELS.WINDOW_SET_ZOOM, (_event, factor: number) => {
@@ -522,6 +611,10 @@ app.whenReady().then(() => {
       createWindow();
     }
   });
+});
+
+app.on('before-quit', () => {
+  isQuitting = true;
 });
 
 app.on('will-quit', () => globalShortcut.unregisterAll());

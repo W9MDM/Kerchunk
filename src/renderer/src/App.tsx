@@ -149,6 +149,8 @@ export default function App() {
   const [advancedMode, setAdvancedMode] = useState(false);
   const [iaxUser, setIaxUser] = useState('');
   const [iaxSecret, setIaxSecret] = useState('');
+  const [closeToTray, setCloseToTray] = useState(false);
+  const [launchOnStartup, setLaunchOnStartup] = useState(false);
   const ttsEnabledRef = useRef(false);
   const audioEngineRef = useRef<AudioEngine | null>(null);
   const didAutoLink = useRef(false);
@@ -200,6 +202,8 @@ export default function App() {
     advancedMode,
     iaxUser,
     iaxSecret,
+    closeToTray,
+    launchOnStartup,
     ...overrides,
   });
 
@@ -217,50 +221,55 @@ export default function App() {
     void window.electronAPI.saveSettings(buildSettings({ accent: hex }));
   };
 
+  /** Push a settings object into all the UI state (used on load and on import). */
+  const applyLoadedSettings = (settings: NodeSettings) => {
+    if (settings.myNode !== undefined) setMyNode(settings.myNode);
+    if (settings.secret !== undefined) setSecret(settings.secret);
+    if (settings.connectHost !== undefined) setConnectHost(settings.connectHost);
+    if (settings.callsign !== undefined) setCallsign(settings.callsign);
+    if (settings.operatorName !== undefined) setOperatorName(settings.operatorName);
+    if (settings.wtPassword !== undefined) setWtPassword(settings.wtPassword);
+    if (settings.savedNodes) setSavedNodes(settings.savedNodes);
+    if (settings.uiScale) {
+      setUiScale(settings.uiScale);
+      void window.electronAPI.setZoom(settings.uiScale);
+    }
+    if (settings.accent) {
+      setAccent(settings.accent);
+      applyAccent(settings.accent);
+    }
+    if (settings.pttKey !== undefined) {
+      setPttKey(settings.pttKey);
+      window.electronAPI.setHotkey(settings.pttKey); // register global hotkey
+    }
+    if (settings.pttMode) setPttMode(settings.pttMode);
+    if (typeof settings.mdcEnabled === 'boolean') setMdcEnabled(settings.mdcEnabled);
+    if (settings.mdcUnitId !== undefined) setMdcUnitId(settings.mdcUnitId);
+    if (settings.mdcTiming) setMdcTiming(settings.mdcTiming);
+    if (typeof settings.mdcLevel === 'number') setMdcLevel(settings.mdcLevel);
+    if (typeof settings.mdcPreamble === 'number') setMdcPreamble(settings.mdcPreamble);
+    if (settings.mode) setMode(settings.mode);
+    if (typeof settings.ttsEnabled === 'boolean') {
+      setTtsEnabled(settings.ttsEnabled);
+      ttsEnabledRef.current = settings.ttsEnabled;
+    }
+    if (settings.audioInput !== undefined) setAudioInput(settings.audioInput);
+    if (settings.audioOutput !== undefined) setAudioOutput(settings.audioOutput);
+    if (settings.audioInput || settings.audioOutput) {
+      void getAudioEngine().setDevices(settings.audioInput ?? '', settings.audioOutput ?? '');
+    }
+    if (settings.recentNodes) setRecentNodes(settings.recentNodes);
+    if (settings.dtmfCommands) setDtmfCommands(settings.dtmfCommands);
+    if (typeof settings.advancedMode === 'boolean') setAdvancedMode(settings.advancedMode);
+    if (settings.iaxUser !== undefined) setIaxUser(settings.iaxUser);
+    if (settings.iaxSecret !== undefined) setIaxSecret(settings.iaxSecret);
+    if (typeof settings.closeToTray === 'boolean') setCloseToTray(settings.closeToTray);
+    if (typeof settings.launchOnStartup === 'boolean') setLaunchOnStartup(settings.launchOnStartup);
+    if (settings.myNode) void window.electronAPI.getNodeInfo(settings.myNode).then(setSelfInfo);
+  };
+
   useEffect(() => {
-    void window.electronAPI.getSettings().then((settings) => {
-      if (settings.myNode) setMyNode(settings.myNode);
-      if (settings.secret) setSecret(settings.secret);
-      if (settings.connectHost) setConnectHost(settings.connectHost);
-      if (settings.callsign) setCallsign(settings.callsign);
-      if (settings.operatorName) setOperatorName(settings.operatorName);
-      if (settings.wtPassword) setWtPassword(settings.wtPassword);
-      if (settings.savedNodes) setSavedNodes(settings.savedNodes);
-      if (settings.uiScale) {
-        setUiScale(settings.uiScale);
-        void window.electronAPI.setZoom(settings.uiScale);
-      }
-      if (settings.accent) {
-        setAccent(settings.accent);
-        applyAccent(settings.accent);
-      }
-      if (settings.pttKey !== undefined) {
-        setPttKey(settings.pttKey);
-        window.electronAPI.setHotkey(settings.pttKey); // register global hotkey on load
-      }
-      if (settings.pttMode) setPttMode(settings.pttMode);
-      if (settings.mdcEnabled) setMdcEnabled(settings.mdcEnabled);
-      if (settings.mdcUnitId) setMdcUnitId(settings.mdcUnitId);
-      if (settings.mdcTiming) setMdcTiming(settings.mdcTiming);
-      if (typeof settings.mdcLevel === 'number') setMdcLevel(settings.mdcLevel);
-      if (typeof settings.mdcPreamble === 'number') setMdcPreamble(settings.mdcPreamble);
-      if (settings.mode) setMode(settings.mode);
-      if (typeof settings.ttsEnabled === 'boolean') {
-        setTtsEnabled(settings.ttsEnabled);
-        ttsEnabledRef.current = settings.ttsEnabled;
-      }
-      if (settings.audioInput) setAudioInput(settings.audioInput);
-      if (settings.audioOutput) setAudioOutput(settings.audioOutput);
-      if (settings.audioInput || settings.audioOutput) {
-        void getAudioEngine().setDevices(settings.audioInput ?? '', settings.audioOutput ?? '');
-      }
-      if (settings.recentNodes) setRecentNodes(settings.recentNodes);
-      if (settings.dtmfCommands) setDtmfCommands(settings.dtmfCommands);
-      if (typeof settings.advancedMode === 'boolean') setAdvancedMode(settings.advancedMode);
-      if (settings.iaxUser) setIaxUser(settings.iaxUser);
-      if (settings.iaxSecret) setIaxSecret(settings.iaxSecret);
-      if (settings.myNode) void window.electronAPI.getNodeInfo(settings.myNode).then(setSelfInfo);
-    });
+    void window.electronAPI.getSettings().then(applyLoadedSettings);
     void window.electronAPI.getThemeState().then(setTheme);
     const disposers = [
       window.electronAPI.onThemeChange(setTheme),
@@ -282,6 +291,7 @@ export default function App() {
       window.electronAPI.onPttHotkey(() => handleTransmitRef.current(!transmittingRef.current)),
     ];
     return () => disposers.forEach((dispose) => dispose());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -708,6 +718,24 @@ export default function App() {
     setIaxSecret(v);
     void persist({ iaxSecret: v });
   };
+  const handleCloseToTrayToggle = (on: boolean) => {
+    setCloseToTray(on);
+    void persist({ closeToTray: on });
+  };
+  const handleLaunchOnStartupToggle = (on: boolean) => {
+    setLaunchOnStartup(on);
+    void persist({ launchOnStartup: on });
+  };
+  const handleExportSettings = async () => {
+    const ok = await window.electronAPI.exportSettings(buildSettings());
+    if (ok) log('Settings exported.');
+  };
+  const handleImportSettings = async () => {
+    const imported = await window.electronAPI.importSettings();
+    if (!imported) return;
+    applyLoadedSettings(imported);
+    log('Settings imported.');
+  };
   const handleMdcEnabledChange = (on: boolean) => {
     setMdcEnabled(on);
     void persist({ mdcEnabled: on });
@@ -1086,6 +1114,12 @@ export default function App() {
         iaxSecret={iaxSecret}
         onIaxUserChange={handleIaxUserChange}
         onIaxSecretChange={handleIaxSecretChange}
+        closeToTray={closeToTray}
+        launchOnStartup={launchOnStartup}
+        onCloseToTrayToggle={handleCloseToTrayToggle}
+        onLaunchOnStartupToggle={handleLaunchOnStartupToggle}
+        onExportSettings={() => void handleExportSettings()}
+        onImportSettings={() => void handleImportSettings()}
         mdcEnabled={mdcEnabled}
         mdcUnitId={mdcUnitId}
         mdcTiming={mdcTiming}
