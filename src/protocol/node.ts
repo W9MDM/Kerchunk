@@ -174,6 +174,8 @@ export interface ConnectionInfo {
   host: string;
   port: number;
   state: string;
+  /** True once the call handshake completed (peer answered); false while calling. */
+  up: boolean;
   callsign?: string;
   location?: string;
   description?: string;
@@ -231,7 +233,12 @@ interface Connection {
   monitor: boolean;
   /** Epoch ms of the last audio frame we received from this leg. */
   lastRxAt: number;
+  /** Fires if the peer never answers; cleared once the call comes up. */
+  setupTimer?: ReturnType<typeof setTimeout>;
 }
+
+/** How long to wait for a peer to answer before giving up on an outbound call. */
+const CALL_SETUP_TIMEOUT_MS = 15000;
 
 const MIX_INTERVAL_MS = 20;
 
@@ -310,7 +317,7 @@ export class KerchunkNode extends EventEmitter<NodeEventMap> {
     this.linkUsername = options.linkUsername ?? 'radio';
     this.reportStats = options.reportStats ?? true;
     this.statpostUrl = options.statpostUrl ?? DEFAULT_STATPOST_URL;
-    this.appVersion = options.appVersion ?? '0.3.0';
+    this.appVersion = options.appVersion ?? '0.3.1';
 
     this.socket = this.createBoundSocket(this.boundPort);
   }
@@ -599,6 +606,10 @@ export class KerchunkNode extends EventEmitter<NodeEventMap> {
     });
     leg.on('up', () => {
       connection.up = true;
+      if (connection.setupTimer) {
+        clearTimeout(connection.setupTimer);
+        connection.setupTimer = undefined;
+      }
       this.emit('state', `linked to ${label}`);
       this.emitConnections();
       // Fetch directory metadata only after the call is up and well clear of the
@@ -619,6 +630,15 @@ export class KerchunkNode extends EventEmitter<NodeEventMap> {
 
     this.emit('state', `connecting to ${label} (${host}:${port})`);
     leg.start();
+    // Give up if the peer never answers (offline node, wrong number, blocked port).
+    // removeConnection re-emits the list; the renderer sees a never-up leg vanish
+    // and announces the failure.
+    connection.setupTimer = setTimeout(() => {
+      if (connection.up) return;
+      this.emit('state', `call to ${label} timed out (no answer after ${CALL_SETUP_TIMEOUT_MS / 1000}s)`);
+      connection.leg.hangup();
+      this.removeConnection(localCall);
+    }, CALL_SETUP_TIMEOUT_MS);
     this.emitConnections();
   }
 
@@ -722,6 +742,7 @@ export class KerchunkNode extends EventEmitter<NodeEventMap> {
       host: c.host,
       port: c.port,
       state: c.state,
+      up: c.up,
       callsign: c.info?.callsign,
       location: c.info?.location,
       description: c.info?.description,
@@ -1113,6 +1134,10 @@ export class KerchunkNode extends EventEmitter<NodeEventMap> {
     const connection = this.byLocalCall.get(localCall);
     if (!connection) {
       return;
+    }
+    if (connection.setupTimer) {
+      clearTimeout(connection.setupTimer);
+      connection.setupTimer = undefined;
     }
     this.byLocalCall.delete(localCall);
     if (connection.leg.remoteCall) {

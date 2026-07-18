@@ -77,6 +77,9 @@ export const LinkedNodes = memo(function LinkedNodes({
                   <div className="truncate text-sm">
                     <span className="font-semibold tabular-nums">{c.label}</span>
                     {title ? <span className="text-muted-foreground"> {title}</span> : ''}
+                    {c.up === false && (
+                      <span className="ml-2 animate-pulse rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-medium text-amber-600 dark:text-amber-400">calling…</span>
+                    )}
                     {c.monitor && (
                       <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">monitor</span>
                     )}
