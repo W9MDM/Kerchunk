@@ -17,6 +17,9 @@ interface NetworkEntry {
   node: string;
   callsign?: string;
   location?: string;
+  description?: string;
+  frequency?: string;
+  tone?: string;
   keyed: boolean;
 }
 
@@ -47,7 +50,15 @@ function flattenNetwork(topology: Topology | null, directLabels: Set<string>): N
     for (const n of nodes) {
       if (!n.isSelf && !seen.has(n.node)) {
         seen.add(n.node);
-        out.push({ node: n.node, callsign: n.callsign, location: n.location, keyed: Boolean(n.keyed) });
+        out.push({
+          node: n.node,
+          callsign: n.callsign,
+          location: n.location,
+          description: n.description,
+          frequency: n.frequency,
+          tone: n.tone,
+          keyed: Boolean(n.keyed),
+        });
       }
       if (n.children.length) walk(n.children);
     }
@@ -199,15 +210,19 @@ export const LinkedNodes = memo(function LinkedNodes({
             <div>
               <div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Network</div>
               <ul className="space-y-1.5">
-                {networkSorted.map((n) => (
-                  <Row
-                    key={n.node}
-                    number={n.node}
-                    location={n.location}
-                    operator={n.callsign}
-                    keyed={n.keyed}
-                  />
-                ))}
+                {networkSorted.map((n) => {
+                  const freq = n.frequency ? `${n.frequency}${n.tone ? ` / ${n.tone}` : ''}` : undefined;
+                  return (
+                    <Row
+                      key={n.node}
+                      number={n.node}
+                      title={n.description || freq}
+                      location={n.location}
+                      operator={n.callsign}
+                      keyed={n.keyed}
+                    />
+                  );
+                })}
               </ul>
             </div>
           )}

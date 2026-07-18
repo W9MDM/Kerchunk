@@ -352,13 +352,33 @@ export default function App() {
               <p className="text-xs text-muted-foreground">Self-contained AllStar node</p>
             </div>
           </div>
-          <button
-            onClick={() => setSettingsOpen(true)}
-            title="Settings"
-            className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition hover:bg-accent hover:text-foreground"
-          >
-            <GearGlyph />
-          </button>
+          <div className="flex items-center gap-2">
+            <div className="flex rounded-lg bg-muted p-0.5 text-xs font-medium">
+              <button
+                onClick={() => setMode('node')}
+                className={`rounded-md px-3 py-1.5 transition ${
+                  mode === 'node' ? 'bg-connected text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                Node
+              </button>
+              <button
+                onClick={() => setMode('guest')}
+                className={`rounded-md px-3 py-1.5 transition ${
+                  mode === 'guest' ? 'bg-tx text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                Web TX
+              </button>
+            </div>
+            <button
+              onClick={() => setSettingsOpen(true)}
+              title="Settings"
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition hover:bg-accent hover:text-foreground"
+            >
+              <GearGlyph />
+            </button>
+          </div>
         </header>
 
         {/* Node identity */}
@@ -399,24 +419,14 @@ export default function App() {
 
         {/* Link controls */}
         <section className="rounded-2xl border border-border bg-card p-5 shadow-card">
-          <div className="flex rounded-lg bg-muted p-0.5">
-            {([
-              { value: 'node', label: 'Node mode' },
-              { value: 'guest', label: 'Web Transceiver' },
-            ] as const).map((tab) => (
-              <button
-                key={tab.value}
-                onClick={() => setMode(tab.value)}
-                className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition ${
-                  mode === tab.value ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-semibold">Link a node</h2>
+            <span className="text-xs font-medium text-muted-foreground">
+              {mode === 'node' ? 'Node mode' : 'Web Transceiver'}
+            </span>
           </div>
 
-          <div className="mt-4 grid gap-2.5 sm:grid-cols-2">
+          <div className="grid gap-2.5 sm:grid-cols-2">
             <input value={connectNode} onChange={(e) => setConnectNode(e.target.value)} inputMode="numeric" className={inputClass} placeholder="Link to node number" />
             {savedNodes.length > 0 ? (
               <select value="" onChange={(e) => e.target.value && setConnectNode(e.target.value)} className={inputClass}>
