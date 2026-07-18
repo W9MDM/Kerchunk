@@ -2,54 +2,56 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Apple-native palette (light) — matches the macOS system colors Transceive uses. */
 :root {
-  --background: 210 20% 98%;
-  --foreground: 224 71% 4%;
+  --background: 240 20% 97%;
+  --foreground: 240 6% 10%;
   --card: 0 0% 100%;
-  --card-foreground: 224 71% 4%;
+  --card-foreground: 240 6% 10%;
   --popover: 0 0% 100%;
-  --popover-foreground: 224 71% 4%;
-  --muted: 210 40% 96%;
-  --muted-foreground: 215 16% 47%;
-  --border: 214 32% 91%;
-  --input: 214 32% 91%;
-  --ring: 221 83% 53%;
-  --primary: 221 83% 53%;
-  --primary-foreground: 210 20% 98%;
-  --accent: 210 40% 96%;
-  --accent-foreground: 224 71% 4%;
-  --destructive: 0 84% 60%;
-  --destructive-foreground: 210 20% 98%;
-  --tx: 0 84% 60%;
-  --rx: 142 70% 45%;
-  --warning: 38 92% 50%;
-  --connected: 142 70% 45%;
-  --disconnected: 215 16% 47%;
+  --popover-foreground: 240 6% 10%;
+  --muted: 240 20% 94%;
+  --muted-foreground: 240 3% 45%;
+  --border: 240 9% 86%;
+  --input: 240 9% 86%;
+  --ring: 211 100% 50%;
+  --primary: 211 100% 50%;
+  --primary-foreground: 0 0% 100%;
+  --accent: 240 20% 94%;
+  --accent-foreground: 240 6% 10%;
+  --destructive: 4 90% 58%;
+  --destructive-foreground: 0 0% 100%;
+  --tx: 4 90% 58%;
+  --rx: 145 63% 42%;
+  --warning: 35 100% 48%;
+  --connected: 145 63% 42%;
+  --disconnected: 240 3% 55%;
 }
 
+/* Apple-native palette (dark) — graphite vibrancy grays. */
 .dark {
-  --background: 224 71% 4%;
-  --foreground: 210 20% 98%;
-  --card: 224 71% 8%;
-  --card-foreground: 210 20% 98%;
-  --popover: 224 71% 6%;
-  --popover-foreground: 210 20% 98%;
-  --muted: 224 71% 12%;
-  --muted-foreground: 215 20% 65%;
-  --border: 215 25% 27%;
-  --input: 215 25% 27%;
-  --ring: 216 90% 60%;
-  --primary: 216 90% 60%;
-  --primary-foreground: 224 71% 4%;
-  --accent: 224 71% 12%;
-  --accent-foreground: 210 20% 98%;
-  --destructive: 0 84% 60%;
-  --destructive-foreground: 210 20% 98%;
-  --tx: 0 84% 60%;
-  --rx: 142 70% 45%;
-  --warning: 38 92% 50%;
-  --connected: 142 70% 45%;
-  --disconnected: 215 20% 65%;
+  --background: 240 6% 10%;
+  --foreground: 240 20% 98%;
+  --card: 240 5% 15%;
+  --card-foreground: 240 20% 98%;
+  --popover: 240 5% 14%;
+  --popover-foreground: 240 20% 98%;
+  --muted: 240 4% 20%;
+  --muted-foreground: 240 5% 65%;
+  --border: 240 4% 24%;
+  --input: 240 4% 24%;
+  --ring: 211 100% 55%;
+  --primary: 211 100% 55%;
+  --primary-foreground: 0 0% 100%;
+  --accent: 240 4% 22%;
+  --accent-foreground: 240 20% 98%;
+  --destructive: 4 100% 62%;
+  --destructive-foreground: 0 0% 100%;
+  --tx: 4 100% 62%;
+  --rx: 145 60% 49%;
+  --warning: 35 100% 55%;
+  --connected: 145 60% 49%;
+  --disconnected: 240 5% 60%;
 }
 
 html, body, #root {
@@ -58,8 +60,16 @@ html, body, #root {
 
 body {
   margin: 0;
-  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI Variable Text',
+    'Segoe UI', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
   transition: background-color 200ms ease, color 200ms ease;
+}
+
+/* Tight, Apple-style headings. */
+h1, h2, h3 {
+  letter-spacing: -0.02em;
 }

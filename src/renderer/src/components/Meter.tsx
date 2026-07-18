@@ -10,12 +10,15 @@ export function Meter({ value, label, tone }: MeterProps) {
 
   return (
     <div className="w-full">
-      <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
+      <div className="mb-1.5 flex items-center justify-between text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
         <span>{label}</span>
-        <span>{width.toFixed(0)}%</span>
+        <span className="tabular-nums">{width.toFixed(0)}</span>
       </div>
-      <div className="h-2 overflow-hidden rounded-full bg-muted">
-        <div className={`h-full rounded-full transition-all ${colorClass}`} style={{ width: `${width}%` }} />
+      <div className="h-2.5 overflow-hidden rounded-full bg-muted">
+        <div
+          className={`h-full rounded-full transition-[width] duration-75 ease-out ${colorClass}`}
+          style={{ width: `${width}%` }}
+        />
       </div>
     </div>
   );
