@@ -25,7 +25,23 @@ const __dirname = path.dirname(__filename);
 
 let mainWindow: BrowserWindow | null = null;
 let protocolNode: KerchunkNode | null = null;
-const preferencesPath = path.join(app.getPath('userData'), 'preferences.json');
+// Computed lazily (after app is ready) — calling app.getPath() at module top
+// level is fragile and can throw during startup.
+const preferencesPath = () => path.join(app.getPath('userData'), 'preferences.json');
+
+// Startup diagnostics → %APPDATA%/kerchunk/kerchunk-main.log, so packaged-app
+// failures (which have no console) are inspectable.
+function logMain(message: string) {
+  try {
+    const logPath = path.join(app.getPath('userData'), 'kerchunk-main.log');
+    mkdirSync(path.dirname(logPath), { recursive: true });
+    writeFileSync(logPath, `${new Date().toISOString()} ${message}\n`, { flag: 'a' });
+  } catch {
+    // best-effort
+  }
+}
+process.on('uncaughtException', (error) => logMain(`uncaughtException: ${error.stack ?? error}`));
+process.on('unhandledRejection', (reason) => logMain(`unhandledRejection: ${String(reason)}`));
 
 const g711Codec: AudioCodec = {
   decode: (payload) => decodeG711Chunk(payload),
@@ -39,15 +55,15 @@ interface Preferences {
 
 function readPreferences(): Preferences {
   try {
-    return JSON.parse(readFileSync(preferencesPath, 'utf8')) as Preferences;
+    return JSON.parse(readFileSync(preferencesPath(), 'utf8')) as Preferences;
   } catch {
     return {};
   }
 }
 
 function writePreferences(prefs: Preferences) {
-  mkdirSync(path.dirname(preferencesPath), { recursive: true });
-  writeFileSync(preferencesPath, JSON.stringify(prefs, null, 2));
+  mkdirSync(path.dirname(preferencesPath()), { recursive: true });
+  writeFileSync(preferencesPath(), JSON.stringify(prefs, null, 2));
 }
 
 function readThemePreference(): ThemeMode {
@@ -93,20 +109,29 @@ function createWindow() {
   // load the bundled HTML from disk instead.
   const rendererUrl = process.env.ELECTRON_RENDERER_URL;
 
+  const indexHtml = path.join(__dirname, '../renderer/index.html');
   if (rendererUrl) {
     void mainWindow.loadURL(rendererUrl);
   } else {
-    void mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
+    mainWindow.loadFile(indexHtml).catch((error) => logMain(`loadFile failed: ${String(error)}`));
   }
 
-  // Render the UI at the operator's saved text size (defaults to 75%).
+  mainWindow.webContents.on('did-fail-load', (_e, code, desc, url) =>
+    logMain(`did-fail-load ${code} ${desc} ${url}`),
+  );
+
+  // Render the UI at the operator's saved text size (defaults to 75%) and show.
   mainWindow.webContents.on('did-finish-load', () => {
     mainWindow?.webContents.setZoomFactor(readNodeSettings().uiScale ?? 0.75);
-  });
-
-  mainWindow.once('ready-to-show', () => {
     mainWindow?.show();
   });
+
+  mainWindow.once('ready-to-show', () => mainWindow?.show());
+
+  // Fallback: never leave the window stuck hidden if the events don't fire.
+  setTimeout(() => {
+    if (mainWindow && !mainWindow.isVisible()) mainWindow.show();
+  }, 4000);
 
   mainWindow.on('closed', () => {
     mainWindow = null;
