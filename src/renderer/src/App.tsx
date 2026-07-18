@@ -59,6 +59,39 @@ function throttleLevel(setter: (value: number) => void): (value: number) => void
   };
 }
 
+/** Convert #rrggbb to the "H S% L%" triple our CSS tokens (hsl(var(--x))) expect. */
+function hexToHslTriple(hex: string): string | null {
+  const match = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!match) return null;
+  const int = parseInt(match[1], 16);
+  const r = ((int >> 16) & 255) / 255;
+  const g = ((int >> 8) & 255) / 255;
+  const b = (int & 255) / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  const d = max - min;
+  let h = 0;
+  let s = 0;
+  if (d !== 0) {
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    if (max === r) h = (g - b) / d + (g < b ? 6 : 0);
+    else if (max === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+    h /= 6;
+  }
+  return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
+}
+
+/** Recolor the accent (primary + focus ring) app-wide from a hex color. */
+function applyAccent(hex: string): void {
+  const triple = hexToHslTriple(hex);
+  if (!triple) return;
+  const root = document.documentElement;
+  root.style.setProperty('--primary', triple);
+  root.style.setProperty('--ring', triple);
+}
+
 function GearGlyph() {
   return (
     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -93,6 +126,7 @@ export default function App() {
   const [trace, setTraceEnabled] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [uiScale, setUiScale] = useState(0.75);
+  const [accent, setAccent] = useState('#007aff');
   const audioEngineRef = useRef<AudioEngine | null>(null);
   const didAutoLink = useRef(false);
 
@@ -119,6 +153,7 @@ export default function App() {
     wtPassword,
     savedNodes,
     uiScale,
+    accent,
     ...overrides,
   });
 
@@ -126,6 +161,12 @@ export default function App() {
     setUiScale(factor);
     void window.electronAPI.setZoom(factor);
     void window.electronAPI.saveSettings(buildSettings({ uiScale: factor }));
+  };
+
+  const handleAccentChange = (hex: string) => {
+    setAccent(hex);
+    applyAccent(hex);
+    void window.electronAPI.saveSettings(buildSettings({ accent: hex }));
   };
 
   useEffect(() => {
@@ -140,6 +181,10 @@ export default function App() {
       if (settings.uiScale) {
         setUiScale(settings.uiScale);
         void window.electronAPI.setZoom(settings.uiScale);
+      }
+      if (settings.accent) {
+        setAccent(settings.accent);
+        applyAccent(settings.accent);
       }
       if (settings.myNode) void window.electronAPI.getNodeInfo(settings.myNode).then(setSelfInfo);
     });
@@ -632,6 +677,8 @@ export default function App() {
         onThemeChange={(m) => void handleThemeChange(m)}
         uiScale={uiScale}
         onScaleChange={handleScaleChange}
+        accent={accent}
+        onAccentChange={handleAccentChange}
         registered={registered}
         onRegister={() => void handleRegister()}
         onSave={() => void handleSaveSettings()}

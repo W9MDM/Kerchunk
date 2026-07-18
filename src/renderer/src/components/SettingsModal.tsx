@@ -18,6 +18,8 @@ const scaleOptions: Array<{ value: number; label: string }> = [
   { value: 1.0, label: 'X-Large' },
 ];
 
+const accentPresets = ['#007aff', '#5b62f0', '#8b5cf6', '#14b8a6', '#34c759', '#ff9500', '#ff3b30', '#ff2d92'];
+
 interface SettingsModalProps {
   open: boolean;
   onClose: () => void;
@@ -35,6 +37,8 @@ interface SettingsModalProps {
   onThemeChange: (mode: ThemeMode) => void;
   uiScale: number;
   onScaleChange: (factor: number) => void;
+  accent: string;
+  onAccentChange: (hex: string) => void;
   registered: boolean;
   onRegister: () => void;
   onSave: () => void;
@@ -159,6 +163,37 @@ export function SettingsModal(props: SettingsModalProps) {
                   {option.label}
                 </button>
               ))}
+            </div>
+          </div>
+
+          {/* Accent color */}
+          <div>
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Accent color</h3>
+            <div className="flex flex-wrap items-center gap-2">
+              {accentPresets.map((hex) => {
+                const selected = props.accent.toLowerCase() === hex.toLowerCase();
+                return (
+                  <button
+                    key={hex}
+                    onClick={() => props.onAccentChange(hex)}
+                    title={hex}
+                    style={{ backgroundColor: hex }}
+                    className={`h-7 w-7 rounded-full transition ${
+                      selected ? 'ring-2 ring-offset-2 ring-offset-card ring-foreground/40' : 'hover:scale-110'
+                    }`}
+                  />
+                );
+              })}
+              <label className="relative ml-1 flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border border-border text-xs text-muted-foreground">
+                +
+                <input
+                  type="color"
+                  value={props.accent}
+                  onChange={(e) => props.onAccentChange(e.target.value)}
+                  className="absolute inset-0 cursor-pointer opacity-0"
+                  title="Custom color"
+                />
+              </label>
             </div>
           </div>
 

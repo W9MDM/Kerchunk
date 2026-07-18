@@ -45,7 +45,7 @@ export const NodeIdentity = memo(function NodeIdentity({
   guest,
 }: NodeIdentityProps) {
   return (
-    <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#3d7bf4] to-[#2f5fe0] p-5 text-white shadow-card">
+    <section className="relative overflow-hidden rounded-2xl bg-primary p-5 text-white shadow-card">
       {/* keyed bar: green when receiving, red when transmitting */}
       <div
         className={`absolute inset-x-0 top-0 h-1 transition-opacity ${
