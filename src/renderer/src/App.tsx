@@ -10,7 +10,7 @@ import { NodeIdentity } from './components/NodeIdentity';
 import { SettingsModal } from './components/SettingsModal';
 import kerchunkIcon from './assets/kerchunk-icon.png';
 import { decodeG711Chunk } from '../../shared/audio';
-import { decodeMdcBursts, formatUnitId } from '../../shared/mdc1200';
+import MdcDecoderWorker from './audio/mdcDecoder.worker?worker';
 
 // Memoized so audio-level re-renders (~12/s) don't re-render these subtrees,
 // which would starve the renderer's main thread and drop outbound mic frames.
@@ -129,6 +129,7 @@ export default function App() {
   const audioEngineRef = useRef<AudioEngine | null>(null);
   const didAutoLink = useRef(false);
   const transmittingRef = useRef(false);
+  const handleTransmitRef = useRef<(on: boolean) => void>(() => {});
   const rxMdcBuffer = useRef<number[]>([]);
   const rxMdcSeen = useRef<Map<number, number>>(new Map());
   const heardMdcTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -224,7 +225,7 @@ export default function App() {
       }),
       window.electronAPI.onProtocolDtmf((payload) => log(`DTMF from peer: ${payload.digit}`)),
       // Global hotkey (window unfocused) toggles transmit.
-      window.electronAPI.onPttHotkey(() => handleTransmit(!transmittingRef.current)),
+      window.electronAPI.onPttHotkey(() => handleTransmitRef.current(!transmittingRef.current)),
     ];
     return () => disposers.forEach((dispose) => dispose());
   }, []);
@@ -234,27 +235,33 @@ export default function App() {
     document.documentElement.style.colorScheme = theme.resolved;
   }, [theme.resolved]);
 
-  // Decode incoming MDC1200 PTT-ID bursts from buffered RX audio (off the audio
-  // path). Dedupe repeats within 8 s so a held ID isn't logged every second.
+  // Decode incoming MDC1200 PTT-ID bursts in a Web Worker so the (CRC-gated)
+  // search never blocks the main thread / mic handoff. Dedupe within 8 s.
   useEffect(() => {
-    const id = setInterval(() => {
-      const buf = rxMdcBuffer.current;
-      if (buf.length < 1400) return;
-      const packets = decodeMdcBursts(Int16Array.from(buf));
-      if (buf.length > 2000) buf.splice(0, buf.length - 2000); // keep a little overlap
+    const worker = new MdcDecoderWorker();
+    worker.onmessage = (event: MessageEvent<string[]>) => {
       const now = performance.now();
-      for (const packet of packets) {
-        const id = formatUnitId(packet.unitId);
-        const last = rxMdcSeen.current.get(packet.unitId) ?? -Infinity;
+      for (const id of event.data) {
+        const key = parseInt(id, 16);
+        const last = rxMdcSeen.current.get(key) ?? -Infinity;
         if (now - last > 8000) log(`MDC1200 ID received: ${id}`);
-        rxMdcSeen.current.set(packet.unitId, now);
-        // Surface the last-heard ID on the node identity card for ~15 s.
+        rxMdcSeen.current.set(key, now);
         setHeardMdc(id);
         clearTimeout(heardMdcTimer.current);
         heardMdcTimer.current = setTimeout(() => setHeardMdc(null), 15000);
       }
+    };
+    const timer = setInterval(() => {
+      const buf = rxMdcBuffer.current;
+      if (buf.length < 1400) return;
+      const samples = Int16Array.from(buf);
+      if (buf.length > 2000) buf.splice(0, buf.length - 2000); // keep a little overlap
+      worker.postMessage(samples, [samples.buffer]);
     }, 1000);
-    return () => clearInterval(id);
+    return () => {
+      clearInterval(timer);
+      worker.terminate();
+    };
   }, []);
 
   // Auto-reconnect permanent saved nodes once, on first load.
@@ -453,11 +460,16 @@ export default function App() {
     transmittingRef.current = on;
     setTransmitting(on);
     if (on) {
+      // Local talk-permit tone while the MDC PTT-ID goes out over the air.
+      if (mdcEnabled && (mdcTiming === 'start' || mdcTiming === 'both')) {
+        audioEngineRef.current?.playTalkPermitTone();
+      }
       window.electronAPI.txStart(); // re-establish the stream on each key-up
     } else {
       window.electronAPI.txStop(); // RADIO_UNKEY on guest (web transceiver) links
     }
   };
+  handleTransmitRef.current = handleTransmit; // keep the ref current for effects
 
   const handlePttKeyChange = (code: string) => {
     setPttKey(code);
@@ -491,12 +503,12 @@ export default function App() {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.code !== pttKey || event.repeat || isTyping()) return;
       event.preventDefault();
-      if (pttMode === 'toggle') handleTransmit(!transmittingRef.current);
-      else if (!transmittingRef.current) handleTransmit(true);
+      if (pttMode === 'toggle') handleTransmitRef.current(!transmittingRef.current);
+      else if (!transmittingRef.current) handleTransmitRef.current(true);
     };
     const onKeyUp = (event: KeyboardEvent) => {
       if (event.code !== pttKey || pttMode !== 'hold') return;
-      if (transmittingRef.current) handleTransmit(false);
+      if (transmittingRef.current) handleTransmitRef.current(false);
     };
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('keyup', onKeyUp);

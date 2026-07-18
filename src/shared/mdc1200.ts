@@ -108,7 +108,7 @@ export function encodeMdcBurst(
   op: number = MDC_OP_PTT_ID,
   arg: number = MDC_ARG_PTT_ID,
   sampleRate = 8000,
-  amplitude = 0.28,
+  amplitude = 0.1,
   tailMs = 0,
 ): Int16Array {
   const bytes = LEADER.concat(buildMdcFrame(op, arg, unitId));
@@ -251,8 +251,8 @@ export function decodeMdcBursts(input: Int16Array | Float32Array, sampleRate = 8
   const seen = new Set<string>();
   // Brute-force symbol timing (offset + period) — every hit is CRC-validated, so
   // false locks can't slip through. Tolerates small clock error in real signals.
-  for (let spb = nominal - 0.4; spb <= nominal + 0.4 && found.length === 0; spb += 0.05) {
-    for (let o = 0; o < nominal; o += 0.5) {
+  for (let spb = nominal - 0.2; spb <= nominal + 0.2 && found.length === 0; spb += 0.1) {
+    for (let o = 0; o < nominal; o += 1) {
       const bits = demodulate(disc, sampleRate, o, spb);
       for (let i = 0; i + 40 + 112 <= bits.length; i += 1) {
         if (syncErrors(bits, i, SYNC) <= 3) {
