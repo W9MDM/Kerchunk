@@ -28,6 +28,7 @@ const electronAPI: KerchunkBridge = {
   connect: (payload: ProtocolConnectPayload) => ipcRenderer.invoke(IPC_CHANNELS.PROTOCOL_CONNECT, payload),
   connectGuest: (payload: ProtocolGuestConnectPayload) =>
     ipcRenderer.invoke(IPC_CHANNELS.PROTOCOL_CONNECT_GUEST, payload),
+  getNodeInfo: (node: string) => ipcRenderer.invoke(IPC_CHANNELS.PROTOCOL_NODE_INFO, node),
   disconnect: (payload: ProtocolDisconnectPayload) =>
     ipcRenderer.invoke(IPC_CHANNELS.PROTOCOL_DISCONNECT, payload),
   register: (payload: ProtocolRegisterPayload) => ipcRenderer.invoke(IPC_CHANNELS.PROTOCOL_REGISTER, payload),
