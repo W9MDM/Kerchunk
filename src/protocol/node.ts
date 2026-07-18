@@ -662,70 +662,86 @@ export class KerchunkNode extends EventEmitter<NodeEventMap> {
   }
 
   /**
-   * Build a multi-level network tree rooted at this node. For each node reached,
-   * fetch its connection list and keyed state from the AllStarLink stats API.
-   * Deduplicated (cycles marked truncated) and capped by a fetch budget to stay
-   * within the stats API rate limit.
+   * Build a multi-level network map rooted at this node. Crawls the mesh
+   * breadth-first: for each node reached, fetch its connection list + keyed state
+   * from the AllStarLink stats API (which already carries each linked node's
+   * callsign/location, so no extra lookup is needed). Duplicate nodes are marked
+   * truncated so cycles don't loop. Bounded by a node budget and a concurrency
+   * cap so a big mesh stays within the stats API's rate limit rather than
+   * bursting hundreds of requests at once.
    */
-  async getTopology(maxDepth = 3): Promise<NodeTopology> {
-    const visited = new Set<string>([this.nodeNumber]);
-    let budget = 12;
+  async getTopology(maxDepth = 6): Promise<NodeTopology> {
+    const NODE_BUDGET = 400; // max nodes to expand across the whole crawl
+    const CONCURRENCY = 6; // simultaneous stats requests
+    let budget = NODE_BUDGET;
 
-    const expand = async (
-      nodeNum: string,
-      meta: { callsign?: string; location?: string },
-      depth: number,
-    ): Promise<TopologyTreeNode> => {
+    const root: TopologyTreeNode = {
+      node: this.nodeNumber || 'node',
+      isSelf: true,
+      keyed: this.keyed,
+      truncated: false,
+      children: [],
+    };
+
+    // enqueued: every node already placed in the tree, so each is expanded once
+    // and repeats elsewhere are shown as truncated (⟲) instead of re-crawled.
+    const enqueued = new Set<string>([this.nodeNumber]);
+    interface Pending {
+      treeNode: TopologyTreeNode;
+      depth: number;
+    }
+    let frontier: Pending[] = [];
+
+    // Seed the frontier from our direct links (carry their richer local info).
+    for (const c of this.byLocalCall.values()) {
+      if (!c.up || !/^[0-9]+$/.test(c.label)) continue;
       const treeNode: TopologyTreeNode = {
-        node: nodeNum,
-        callsign: meta.callsign,
-        location: meta.location,
-        isSelf: nodeNum === this.nodeNumber,
+        node: c.label,
+        callsign: c.info?.callsign,
+        location: c.info?.location,
+        description: c.info?.description,
+        frequency: c.info?.frequency,
+        tone: c.info?.tone,
         keyed: false,
         truncated: false,
         children: [],
       };
-      if (visited.has(nodeNum)) {
-        treeNode.truncated = true; // already shown elsewhere in the tree
-        return treeNode;
-      }
-      if (depth >= maxDepth || budget <= 0) {
-        return treeNode; // leaf: not expanded further
-      }
-      visited.add(nodeNum);
-      budget -= 1;
-      // Enrich this node's own detail (frequency/description/location) for the
-      // Network list, reusing the shared cache so we don't refetch direct links.
-      const info = this.nodeInfoCache.get(nodeNum) ?? (await fetchNodeInfo(nodeNum, { fetchImpl: this.fetchImpl }));
-      if (info) {
-        this.nodeInfoCache.set(nodeNum, info);
-        treeNode.callsign = treeNode.callsign ?? info.callsign;
-        treeNode.location = treeNode.location ?? info.location;
-        treeNode.description = info.description;
-        treeNode.frequency = info.frequency;
-        treeNode.tone = info.tone;
-      }
-      const stats = await fetchNodeStats(nodeNum, { fetchImpl: this.fetchImpl });
-      treeNode.keyed = stats.keyed;
-      treeNode.children = await Promise.all(
-        stats.connections.map((l) => expand(l.node, { callsign: l.callsign, location: l.location }, depth + 1)),
-      );
-      return treeNode;
-    };
+      root.children.push(treeNode);
+      enqueued.add(c.label);
+      frontier.push({ treeNode, depth: 1 });
+    }
 
-    const direct = [...this.byLocalCall.values()].filter((c) => c.up && /^[0-9]+$/.test(c.label));
-    const children = await Promise.all(
-      direct.map((c) => expand(c.label, { callsign: c.info?.callsign, location: c.info?.location }, 1)),
-    );
-    return {
-      root: {
-        node: this.nodeNumber || 'node',
-        isSelf: true,
-        keyed: this.keyed,
-        truncated: false,
-        children,
-      },
-    };
+    // Breadth-first, one depth level at a time, CONCURRENCY requests in flight.
+    for (let depth = 1; depth <= maxDepth && frontier.length > 0 && budget > 0; depth += 1) {
+      const next: Pending[] = [];
+      for (let i = 0; i < frontier.length && budget > 0; i += CONCURRENCY) {
+        const batch = frontier.slice(i, i + CONCURRENCY).filter(() => budget-- > 0);
+        await Promise.all(
+          batch.map(async ({ treeNode }) => {
+            const stats = await fetchNodeStats(treeNode.node, { fetchImpl: this.fetchImpl });
+            treeNode.keyed = stats.keyed;
+            for (const link of stats.connections) {
+              const child: TopologyTreeNode = {
+                node: link.node,
+                callsign: link.callsign,
+                location: link.location,
+                keyed: false,
+                truncated: enqueued.has(link.node),
+                children: [],
+              };
+              treeNode.children.push(child);
+              if (!child.truncated) {
+                enqueued.add(link.node);
+                next.push({ treeNode: child, depth: depth + 1 });
+              }
+            }
+          }),
+        );
+      }
+      frontier = next;
+    }
+
+    return { root };
   }
 
   /** Fetch (and cache) AllStarLink metadata for a connection's node number. */

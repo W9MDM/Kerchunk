@@ -59,7 +59,9 @@ export const NetworkTree = memo(function NetworkTree({ topology, onRefresh }: Ne
           ↻ Refresh
         </button>
       </div>
-      <Branch node={topology.root} depth={0} />
+      <div className="max-h-[28rem] overflow-y-auto pr-1">
+        <Branch node={topology.root} depth={0} />
+      </div>
       <p className="mt-3 text-xs text-muted-foreground">
         Live map of the mesh you're linked into. 🟢 = recently keyed per AllStarLink stats (~30s lag). ⟲ = shown above.
       </p>
