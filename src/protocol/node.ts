@@ -166,6 +166,12 @@ export interface ConnectionInfo {
   description?: string;
   frequency?: string;
   tone?: string;
+  /** Receive-only link (app_rpt monitor): we hear it but don't transmit to it. */
+  monitor?: boolean;
+  /** True when this link has carried audio in the last ~1.5 s. */
+  keyed?: boolean;
+  /** Epoch ms of the last audio frame received on this link (0 if never). */
+  lastKeyedAt?: number;
 }
 
 export interface TopologyTreeNode {
@@ -205,6 +211,10 @@ interface Connection {
   up: boolean;
   rxQueue: Int16Array[];
   info: NodeInfo | null;
+  /** Receive-only: don't transmit our audio to this leg. */
+  monitor: boolean;
+  /** Epoch ms of the last audio frame we received from this leg. */
+  lastRxAt: number;
 }
 
 const MIX_INTERVAL_MS = 20;
@@ -428,16 +438,16 @@ export class KerchunkNode extends EventEmitter<NodeEventMap> {
   }
 
   /** Link to another node by number, resolving it to an address via DNS. */
-  async connectToNode(nodeNumber: string): Promise<void> {
+  async connectToNode(nodeNumber: string, options?: { monitor?: boolean }): Promise<void> {
     this.emit('state', `resolving node ${nodeNumber}`);
     const resolved = await this.resolveNodeNumber(nodeNumber);
     this.emit('state', `resolved ${nodeNumber} → ${resolved.host}:${resolved.port}`);
-    this.openLeg(resolved.host, resolved.port, nodeNumber, nodeNumber);
+    this.openLeg(resolved.host, resolved.port, nodeNumber, nodeNumber, { monitor: options?.monitor });
   }
 
   /** Link directly to a known address (e.g. a hub you run). */
-  connectToAddress(host: string, port: number, calledNumber?: string): void {
-    this.openLeg(host, port ?? DEFAULT_IAX_PORT, calledNumber ?? '', host);
+  connectToAddress(host: string, port: number, calledNumber?: string, options?: { monitor?: boolean }): void {
+    this.openLeg(host, port ?? DEFAULT_IAX_PORT, calledNumber ?? '', host, { monitor: options?.monitor });
   }
 
   /**
@@ -494,6 +504,7 @@ export class KerchunkNode extends EventEmitter<NodeEventMap> {
       callingNumber?: string;
       callingName?: string;
       keyingMode?: 'newkey' | 'radiokey';
+      monitor?: boolean;
     },
   ): void {
     for (const existing of this.byLocalCall.values()) {
@@ -513,7 +524,18 @@ export class KerchunkNode extends EventEmitter<NodeEventMap> {
       calledNumber: calledNumber || undefined,
       keyingMode: overrides?.keyingMode,
     });
-    const connection: Connection = { leg, host, port, label, state: 'idle', up: false, rxQueue: [], info: null };
+    const connection: Connection = {
+      leg,
+      host,
+      port,
+      label,
+      state: 'idle',
+      up: false,
+      rxQueue: [],
+      info: null,
+      monitor: overrides?.monitor ?? false,
+      lastRxAt: 0,
+    };
     this.byLocalCall.set(localCall, connection);
 
     leg.on('send', (frame) => {
@@ -539,6 +561,7 @@ export class KerchunkNode extends EventEmitter<NodeEventMap> {
       if (connection.rxQueue.length > 8) {
         connection.rxQueue.shift(); // bound latency (~160ms)
       }
+      connection.lastRxAt = Date.now();
       this.rxVoiceCount += 1;
     });
     leg.on('dtmf', (digit) => this.emit('dtmf', digit));
@@ -572,7 +595,7 @@ export class KerchunkNode extends EventEmitter<NodeEventMap> {
    * RADIO_KEY on guest (web-transceiver) legs. */
   notifyTransmitStart(): void {
     for (const connection of this.byLocalCall.values()) {
-      if (connection.up) {
+      if (connection.up && !connection.monitor) {
         connection.leg.markKeyStart();
         connection.leg.keyRadio(); // no-op on node (newkey) links
       }
@@ -583,7 +606,7 @@ export class KerchunkNode extends EventEmitter<NodeEventMap> {
    * implicitly when voice frames stop). */
   notifyTransmitStop(): void {
     for (const connection of this.byLocalCall.values()) {
-      if (connection.up) {
+      if (connection.up && !connection.monitor) {
         connection.leg.unkeyRadio(); // no-op on node (newkey) links
       }
     }
@@ -601,6 +624,7 @@ export class KerchunkNode extends EventEmitter<NodeEventMap> {
   }
 
   getConnections(): ConnectionInfo[] {
+    const now = Date.now();
     return [...this.byLocalCall.values()].map((c) => ({
       localCall: c.leg.localCall,
       label: c.label,
@@ -612,7 +636,26 @@ export class KerchunkNode extends EventEmitter<NodeEventMap> {
       description: c.info?.description,
       frequency: c.info?.frequency,
       tone: c.info?.tone,
+      monitor: c.monitor,
+      keyed: c.lastRxAt > 0 && now - c.lastRxAt < 1500,
+      lastKeyedAt: c.lastRxAt,
     }));
+  }
+
+  /** AllStarLink directory metadata for our own node, for the identity header. */
+  async getSelfInfo(): Promise<NodeInfo | null> {
+    if (!this.nodeNumber) {
+      return null;
+    }
+    const cached = this.nodeInfoCache.get(this.nodeNumber);
+    if (cached) {
+      return cached;
+    }
+    const info = await fetchNodeInfo(this.nodeNumber, { fetchImpl: this.fetchImpl });
+    if (info) {
+      this.nodeInfoCache.set(this.nodeNumber, info);
+    }
+    return info;
   }
 
   /**
@@ -766,6 +809,10 @@ export class KerchunkNode extends EventEmitter<NodeEventMap> {
 
       const mixes = mixMinusOne(inputs, this.frameSize);
       upLegs.forEach((c, i) => {
+        // Monitor links are receive-only: never transmit our audio to them.
+        if (c.monitor) {
+          return;
+        }
         // Only transmit to a peer when SOME OTHER source is active — otherwise
         // we'd stream silence back, holding its receiver keyed and burying our
         // real audio. This gives PTT a clean key-up/key-down the far node relays.

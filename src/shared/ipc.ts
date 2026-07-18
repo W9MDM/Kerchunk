@@ -6,6 +6,7 @@ export const IPC_CHANNELS = {
   THEME_STATE_CHANGED: 'theme:state-changed',
   PROTOCOL_CONNECT: 'protocol:connect',
   PROTOCOL_CONNECT_GUEST: 'protocol:connect-guest',
+  PROTOCOL_NODE_INFO: 'protocol:node-info',
   PROTOCOL_DISCONNECT: 'protocol:disconnect',
   PROTOCOL_REGISTER: 'protocol:register',
   PROTOCOL_SET_DEBUG: 'protocol:set-debug',
@@ -36,6 +37,18 @@ export interface Topology {
   root: TopologyTreeNode;
 }
 
+/** A node the operator has saved to their list (favorites / remembered links). */
+export interface SavedNode {
+  /** AllStarLink node number (or direct address). */
+  number: string;
+  /** Optional short label the operator gives it. */
+  note?: string;
+  /** Auto-reconnect this node on startup and keep it linked. */
+  permanent?: boolean;
+  /** Connect receive-only (monitor). */
+  monitor?: boolean;
+}
+
 /** Persisted node identity + connection defaults. */
 export interface NodeSettings {
   /** Your AllStarLink node number. */
@@ -46,8 +59,23 @@ export interface NodeSettings {
   connectHost?: string;
   /** Operator callsign (guest / web-transceiver mode). */
   callsign?: string;
+  /** Operator full name, shown on the node identity header. */
+  operatorName?: string;
   /** AllStarLink portal password for guest token fetch (stored locally). */
   wtPassword?: string;
+  /** The operator's saved node list (favorites / remembered links). */
+  savedNodes?: SavedNode[];
+}
+
+/** AllStarLink directory metadata for a node (identity header, list rows). */
+export interface NodeInfoDto {
+  node: string;
+  callsign?: string;
+  location?: string;
+  description?: string;
+  frequency?: string;
+  tone?: string;
+  status?: string;
 }
 
 /** Guest (Web Transceiver) connection — for operators without a node number. */
@@ -77,6 +105,8 @@ export interface ProtocolConnectPayload {
   username?: string;
   /** Shared secret for call-time MD5 authentication. */
   secret?: string;
+  /** Connect receive-only (app_rpt monitor) — hear it but don't transmit to it. */
+  monitor?: boolean;
 }
 
 export interface ProtocolDisconnectPayload {
@@ -117,6 +147,9 @@ export interface ProtocolConnectionInfo {
   description?: string;
   frequency?: string;
   tone?: string;
+  monitor?: boolean;
+  keyed?: boolean;
+  lastKeyedAt?: number;
 }
 
 export interface ProtocolConnectionsPayload {
@@ -138,6 +171,7 @@ export interface KerchunkBridge {
   onThemeChange(callback: (state: ThemeState) => void): () => void;
   connect(payload: ProtocolConnectPayload): Promise<void>;
   connectGuest(payload: ProtocolGuestConnectPayload): Promise<void>;
+  getNodeInfo(node: string): Promise<NodeInfoDto | null>;
   disconnect(payload: ProtocolDisconnectPayload): Promise<void>;
   register(payload: ProtocolRegisterPayload): Promise<ProtocolRegistrationResult>;
   setDebug(enabled: boolean): Promise<void>;

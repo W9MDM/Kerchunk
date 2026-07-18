@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { KerchunkNode, type AudioCodec } from '../protocol/node.js';
 import { DEFAULT_IAX_PORT } from '../protocol/resolver.js';
 import { fetchWebTransceiverToken } from '../protocol/wtportal.js';
+import { fetchNodeInfo } from '../protocol/nodeinfo.js';
 import { decodeG711Chunk, encodeG711Chunk } from '../shared/audio.js';
 import {
   IPC_CHANNELS,
@@ -172,12 +173,27 @@ app.whenReady().then(() => {
     // resolved to an address via AllStarLink DNS.
     const host = payload.host?.trim();
     if (host) {
-      node.connectToAddress(host, payload.port ?? DEFAULT_IAX_PORT, payload.calledNumber ?? payload.node);
+      node.connectToAddress(host, payload.port ?? DEFAULT_IAX_PORT, payload.calledNumber ?? payload.node, {
+        monitor: payload.monitor,
+      });
     } else if (payload.node?.trim()) {
-      await node.connectToNode(payload.node.trim());
+      await node.connectToNode(payload.node.trim(), { monitor: payload.monitor });
     } else {
       throw new Error('Provide a node number or address to connect to.');
     }
+  });
+
+  ipcMain.handle(IPC_CHANNELS.PROTOCOL_NODE_INFO, async (_event, node: string) => {
+    const trimmed = String(node ?? '').trim();
+    if (!trimmed) {
+      return null;
+    }
+    // Reuse the running node's cache when the request is for our own number;
+    // otherwise do a direct directory lookup.
+    if (protocolNode && trimmed === readNodeSettings().myNode?.trim()) {
+      return protocolNode.getSelfInfo();
+    }
+    return fetchNodeInfo(trimmed);
   });
 
   ipcMain.handle(IPC_CHANNELS.PROTOCOL_CONNECT_GUEST, async (_event, payload: ProtocolGuestConnectPayload) => {
