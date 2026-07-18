@@ -69,11 +69,12 @@ function writeNodeSettings(settings: NodeSettings) {
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    // Sized to the app's content column (max-w-2xl ≈ 672px + padding), Transceive-style.
-    width: 720,
-    height: 960,
-    minWidth: 420,
-    minHeight: 560,
+    // Sized to the app's content column at 75% zoom (see setZoomFactor below),
+    // Transceive-style compact window.
+    width: 560,
+    height: 760,
+    minWidth: 340,
+    minHeight: 460,
     useContentSize: true,
     title: 'Kerchunk',
     show: false,
@@ -97,6 +98,11 @@ function createWindow() {
   } else {
     void mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
   }
+
+  // Render the whole UI at 75% ("shrink everything by 25%").
+  mainWindow.webContents.on('did-finish-load', () => {
+    mainWindow?.webContents.setZoomFactor(0.75);
+  });
 
   mainWindow.once('ready-to-show', () => {
     mainWindow?.show();
