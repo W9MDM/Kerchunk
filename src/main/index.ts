@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, nativeTheme } from 'electron';
+import { app, BrowserWindow, ipcMain, Menu, nativeTheme } from 'electron';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -69,17 +69,23 @@ function writeNodeSettings(settings: NodeSettings) {
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 860,
+    // Sized to the app's content column (max-w-2xl ≈ 672px + padding), Transceive-style.
+    width: 720,
+    height: 960,
+    minWidth: 420,
+    minHeight: 560,
+    useContentSize: true,
     title: 'Kerchunk',
     show: false,
-    backgroundColor: nativeTheme.shouldUseDarkColors ? '#111827' : '#f9fafb',
+    autoHideMenuBar: true,
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#19191c' : '#f5f5f7',
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
     },
   });
+  mainWindow.setMenuBarVisibility(false);
 
   // electron-vite serves the renderer from a dev server and exposes its URL via
   // ELECTRON_RENDERER_URL. In a packaged/built app that variable is absent and we
@@ -148,6 +154,8 @@ function ensureNode(identity?: { username?: string; secret?: string }) {
 }
 
 app.whenReady().then(() => {
+  // No File/Edit/View… menu — Kerchunk is a single-window app.
+  Menu.setApplicationMenu(null);
   createWindow();
 
   ipcMain.handle(THEME_CHANNELS.GET_STATE, () => {
