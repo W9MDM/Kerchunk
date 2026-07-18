@@ -53,6 +53,10 @@ export const IAX_CALLTOKEN = 0x28; // 40 — anti-spoofing call-token handshake
 
 // Control-frame subclasses (used with FRAME_TYPE_CONTROL).
 export const CONTROL_ANSWER = 0x04;
+// Radio keying controls (Asterisk AST_CONTROL_RADIO_KEY/UNKEY) — how guest/
+// Web Transceiver clients signal PTT to app_rpt.
+export const CONTROL_RADIO_KEY = 0x0c; // 12
+export const CONTROL_RADIO_UNKEY = 0x0d; // 13
 
 // Legacy aliases kept so older call sites and tests keep compiling. These map to
 // the IAX control subclasses that the engine actually sends.

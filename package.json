@@ -1,8 +1,11 @@
 {
   "name": "kerchunk",
-  "version": "0.2.0-alpha",
+  "version": "0.2.0",
   "private": true,
-  "description": "A native desktop client for AllStarLink-style node operation built with Electron and TypeScript.",
+  "description": "A self-contained AllStarLink-style node for the desktop — link to nodes, conference audio, and talk with push-to-talk. Includes Web Transceiver guest mode.",
+  "author": "W9MDM",
+  "license": "MIT",
+  "copyright": "Copyright © 2026 W9MDM",
   "main": "./dist/main/index.js",
   "type": "module",
   "scripts": {
@@ -11,12 +14,14 @@
     "test": "vitest run",
     "lint": "eslint . --ext .ts,.tsx",
     "typecheck": "tsc -b tsconfig.json",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "pack": "electron-vite build && electron-builder --dir",
+    "dist": "electron-vite build && electron-builder",
+    "dist:win": "electron-vite build && electron-builder --win",
+    "dist:mac": "electron-vite build && electron-builder --mac",
+    "dist:linux": "electron-vite build && electron-builder --linux"
   },
   "dependencies": {
-    "electron": "^35.0.0",
-    "electron-log": "^5.4.4",
-    "electron-vite": "^3.0.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
@@ -26,7 +31,9 @@
     "@typescript-eslint/eslint-plugin": "^8.17.1",
     "@typescript-eslint/parser": "^8.17.1",
     "autoprefixer": "^10.4.20",
+    "electron": "^35.0.0",
     "electron-builder": "^26.0.0",
+    "electron-vite": "^3.0.0",
     "eslint": "^9.15.0",
     "eslint-plugin-react-hooks": "^5.0.0",
     "jsdom": "^25.0.1",
@@ -36,5 +43,61 @@
     "typescript": "^5.7.2",
     "vite": "^5.4.10",
     "vitest": "^2.1.4"
+  },
+  "build": {
+    "appId": "org.w9mdm.kerchunk",
+    "productName": "Kerchunk",
+    "copyright": "Copyright © 2026 W9MDM",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**/*",
+      "package.json",
+      "LICENSE",
+      "THIRD-PARTY-NOTICES.md"
+    ],
+    "extraResources": [
+      "LICENSE",
+      "THIRD-PARTY-NOTICES.md"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "build/icon.png",
+      "artifactName": "${productName}-${version}-Setup.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "license": "LICENSE",
+      "shortcutName": "Kerchunk"
+    },
+    "portable": {
+      "artifactName": "${productName}-${version}-Portable.${ext}"
+    },
+    "mac": {
+      "target": ["dmg"],
+      "icon": "build/icon.png",
+      "category": "public.app-category.utilities"
+    },
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "icon": "build/icon.png",
+      "category": "Network",
+      "maintainer": "W9MDM"
+    }
   }
 }

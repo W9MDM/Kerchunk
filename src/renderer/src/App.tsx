@@ -57,6 +57,9 @@ export default function App() {
   const [secret, setSecret] = useState('');
   const [connectNode, setConnectNode] = useState('');
   const [connectHost, setConnectHost] = useState('');
+  const [mode, setMode] = useState<'node' | 'guest'>('node');
+  const [callsign, setCallsign] = useState('');
+  const [wtPassword, setWtPassword] = useState('');
   const [connections, setConnections] = useState<ProtocolConnectionInfo[]>([]);
   const [topology, setTopology] = useState<Topology | null>(null);
   const [registered, setRegistered] = useState(false);
@@ -87,6 +90,8 @@ export default function App() {
       if (settings.myNode) setMyNode(settings.myNode);
       if (settings.secret) setSecret(settings.secret);
       if (settings.connectHost) setConnectHost(settings.connectHost);
+      if (settings.callsign) setCallsign(settings.callsign);
+      if (settings.wtPassword) setWtPassword(settings.wtPassword);
     });
     void window.electronAPI.getThemeState().then(setTheme);
     const disposers = [
@@ -133,20 +138,38 @@ export default function App() {
   const handleConnect = async () => {
     const node = connectNode.trim();
     const host = connectHost.trim();
+    const guestMode = mode === 'guest';
     if (!node && !host) {
       log('Enter a node number to link to (or a direct address).');
       return;
     }
-    log(`Linking to ${host || `node ${node}`}…`);
+    if (guestMode && (!callsign.trim() || !wtPassword)) {
+      log('Web Transceiver needs your callsign and allstarlink.org portal password.');
+      return;
+    }
+    if (guestMode && !node) {
+      log('Web Transceiver needs a node number (the portal issues a token per node).');
+      return;
+    }
+    log(`Linking to ${host || `node ${node}`}${guestMode ? ' as guest' : ''}…`);
     try {
       await getAudioEngine().start();
-      await window.electronAPI.connect({
-        node: node || undefined,
-        host: host || undefined,
-        calledNumber: node || undefined,
-        username: myNode.trim() || undefined,
-        secret: secret || undefined,
-      });
+      if (guestMode) {
+        await window.electronAPI.connectGuest({
+          node: node || undefined,
+          host: host || undefined,
+          callsign: callsign.trim(),
+          password: wtPassword,
+        });
+      } else {
+        await window.electronAPI.connect({
+          node: node || undefined,
+          host: host || undefined,
+          calledNumber: node || undefined,
+          username: myNode.trim() || undefined,
+          secret: secret || undefined,
+        });
+      }
       setConnectNode('');
       setConnectHost('');
     } catch (error) {
@@ -190,6 +213,8 @@ export default function App() {
     setTransmitting(on);
     if (on) {
       window.electronAPI.txStart(); // re-establish the stream on each key-up
+    } else {
+      window.electronAPI.txStop(); // RADIO_UNKEY on guest (web transceiver) links
     }
   };
 
@@ -203,6 +228,8 @@ export default function App() {
       myNode: myNode.trim(),
       secret,
       connectHost: connectHost.trim(),
+      callsign: callsign.trim(),
+      wtPassword,
     });
     log('Node info saved.');
   };
@@ -250,34 +277,78 @@ export default function App() {
           </div>
 
           <div className="mt-6 grid gap-4 lg:grid-cols-[1fr_320px]">
-            <div className="grid content-start gap-2 rounded-xl border border-border bg-background/60 p-4 sm:grid-cols-2">
-              <input
-                value={myNode}
-                onChange={(event) => setMyNode(event.target.value)}
-                inputMode="numeric"
-                className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm"
-                placeholder="Your node number"
-              />
-              <input
-                value={secret}
-                onChange={(event) => setSecret(event.target.value)}
-                type="password"
-                className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm"
-                placeholder="Your node secret"
-              />
-              <input
-                value={connectNode}
-                onChange={(event) => setConnectNode(event.target.value)}
-                inputMode="numeric"
-                className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm"
-                placeholder="Link to node number"
-              />
-              <input
-                value={connectHost}
-                onChange={(event) => setConnectHost(event.target.value)}
-                className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm"
-                placeholder="…or direct address"
-              />
+            <div className="grid content-start gap-3 rounded-xl border border-border bg-background/60 p-4">
+              <div className="flex gap-1 rounded-lg border border-border bg-background p-1">
+                {([
+                  { value: 'node', label: 'Node mode', hint: 'Use your ASL node number' },
+                  { value: 'guest', label: 'Web Transceiver', hint: 'No node number — callsign only' },
+                ] as const).map((tab) => (
+                  <button
+                    key={tab.value}
+                    onClick={() => setMode(tab.value)}
+                    title={tab.hint}
+                    className={`flex-1 rounded-md px-3 py-1.5 text-sm transition ${
+                      mode === tab.value
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+
+              {mode === 'node' ? (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <input
+                    value={myNode}
+                    onChange={(event) => setMyNode(event.target.value)}
+                    inputMode="numeric"
+                    className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm"
+                    placeholder="Your node number"
+                  />
+                  <input
+                    value={secret}
+                    onChange={(event) => setSecret(event.target.value)}
+                    type="password"
+                    className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm"
+                    placeholder="Your node secret"
+                  />
+                </div>
+              ) : (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <input
+                    value={callsign}
+                    onChange={(event) => setCallsign(event.target.value)}
+                    className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm"
+                    placeholder="Your callsign (portal login)"
+                  />
+                  <input
+                    value={wtPassword}
+                    onChange={(event) => setWtPassword(event.target.value)}
+                    type="password"
+                    className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm"
+                    placeholder="allstarlink.org portal password"
+                  />
+                </div>
+              )}
+
+              <div className="grid gap-2 sm:grid-cols-2">
+                <input
+                  value={connectNode}
+                  onChange={(event) => setConnectNode(event.target.value)}
+                  inputMode="numeric"
+                  className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm"
+                  placeholder="Link to node number"
+                />
+                <input
+                  value={connectHost}
+                  onChange={(event) => setConnectHost(event.target.value)}
+                  disabled={mode === 'guest'}
+                  className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm disabled:opacity-40"
+                  placeholder={mode === 'guest' ? 'node number required' : '…or direct address'}
+                />
+              </div>
             </div>
 
             <div className="rounded-xl border border-border bg-background/60 p-4">
@@ -303,12 +374,14 @@ export default function App() {
             >
               Save node info
             </button>
-            <button
-              onClick={() => void handleRegister()}
-              className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
-            >
-              Register
-            </button>
+            {mode === 'node' && (
+              <button
+                onClick={() => void handleRegister()}
+                className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+              >
+                Register
+              </button>
+            )}
             <button
               onClick={() => void handleConnect()}
               className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-accent hover:text-accent-foreground"
@@ -420,6 +493,10 @@ export default function App() {
 
           <MemoActivityLog entries={activity} />
         </section>
+
+        <footer className="pb-2 text-center text-xs text-muted-foreground">
+          Kerchunk — Copyright © 2026 W9MDM · MIT License · Not affiliated with AllStarLink
+        </footer>
       </div>
     </main>
   );
