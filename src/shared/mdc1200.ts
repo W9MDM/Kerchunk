@@ -23,8 +23,12 @@ const CIRCLE = 2 ** 32; // 32-bit phase accumulator range
 const BAUD = 1200;
 const FREQ_SAME = 1200; // bit == previous bit
 const FREQ_DIFF = 1800; // bit != previous bit
-const LEADER = [0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x07, 0x09, 0x2a, 0x44, 0x6f];
 const SYNC = [0x07, 0x09, 0x2a, 0x44, 0x6f];
+// A longer 0x55 preamble than the 7-byte minimum so the receiver's bit-clock
+// (app_rpt / the reference decoder) reliably locks before the sync word — short
+// preambles decode only intermittently over a real link.
+const PREAMBLE_BYTES = 16;
+const LEADER = [...new Array(PREAMBLE_BYTES).fill(0x55), ...SYNC];
 
 function reverseBits(value: number, bits: number): number {
   let out = 0;
