@@ -4,6 +4,30 @@ Kerchunk is a native, cross-platform desktop client for operating a full AllStar
 
 The project is independent and is not affiliated with or endorsed by AllStarLink, Inc.
 
+Copyright © 2026 W9MDM. Released under the MIT License (see [LICENSE](./LICENSE)).
+
+## Install (Windows)
+
+Grab a build from the `release/` folder (or from whoever sent it to you):
+
+- **Kerchunk-x.y.z-Setup.exe** — installer. Run it, pick a folder, and it adds
+  Start Menu and desktop shortcuts.
+- **Kerchunk-x.y.z-Portable.exe** — no install; double-click to run.
+
+These builds are not code-signed, so Windows SmartScreen will show a
+"Windows protected your PC" prompt the first time. Click **More info →
+Run anyway**. Kerchunk only makes outbound connections (AllStarLink DNS,
+registration/portal HTTPS, and IAX2 on UDP 4569) — no inbound ports needed.
+
+### Two ways to connect
+
+- **Node mode** — for operators with an issued AllStarLink node number.
+  Enter your node number and secret, Register, then link to any node.
+- **Web Transceiver** — for anyone with a callsign and a free
+  allstarlink.org portal account, no node number required. Enter your
+  callsign and portal password; Kerchunk fetches a per-node session token
+  from the portal and connects as a guest.
+
 ## Why Kerchunk exists
 
 The original AllCall concept aimed to give users a practical way to participate in AllStarLink-style linking from a desktop environment. Kerchunk carries that idea forward with a modern desktop application that keeps the node experience local, focused, and testable.
@@ -38,6 +62,22 @@ The original AllCall concept aimed to give users a practical way to participate 
   machine, the framing helper, DNS resolution, the conference mixer, the call
   leg, and the node end-to-end (bidirectional conference over real UDP).
 
+## Build from source
+
+Requires Node.js 20+ and npm.
+
+```sh
+npm install
+npm run dev          # run in development
+npm run dist:win     # build the Windows installer + portable .exe → release/
+npm run dist:mac     # macOS .dmg (must run on macOS)
+npm run dist:linux   # Linux AppImage + .deb
+npm test             # run the Vitest suite
+```
+
+Build artifacts land in `release/`. The app icon is generated into
+`build/icon.png` and electron-builder derives the per-platform icons from it.
+
 ## Roadmap
 
 1. Inbound-link support (accept NEW; UDP 4569 forwarding / reachability check).
@@ -45,8 +85,10 @@ The original AllCall concept aimed to give users a practical way to participate 
 3. app_rpt niceties: connect/disconnect telemetry, courtesy tones, node ID.
 4. Full 32-bit format negotiation and codec fallback beyond G.711.
 5. Desktop settings, persistence, and tray integration.
-6. Packaging and release automation.
+6. Code-signing for signed, SmartScreen-clean installers.
 
 ## License
 
-Kerchunk is licensed under the GNU General Public License v3.0.
+Kerchunk is copyright © 2026 W9MDM and released under the MIT License. See
+[LICENSE](./LICENSE) for the full text and [THIRD-PARTY-NOTICES.md](./THIRD-PARTY-NOTICES.md)
+for the open-source components it builds on.

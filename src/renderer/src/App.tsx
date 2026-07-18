@@ -493,6 +493,10 @@ export default function App() {
 
           <MemoActivityLog entries={activity} />
         </section>
+
+        <footer className="pb-2 text-center text-xs text-muted-foreground">
+          Kerchunk — Copyright © 2026 W9MDM · MIT License · Not affiliated with AllStarLink
+        </footer>
       </div>
     </main>
   );
