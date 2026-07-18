@@ -622,6 +622,16 @@ export class KerchunkNode extends EventEmitter<NodeEventMap> {
     this.emitConnections();
   }
 
+  /** Send DTMF command digits to a connected node (or all up links if no label). */
+  sendDtmf(digits: string, label?: string): void {
+    for (const connection of this.byLocalCall.values()) {
+      if (!connection.up) continue;
+      if (label && connection.label !== label) continue;
+      for (const digit of digits) connection.leg.sendDtmf(digit);
+    }
+    this.emit('state', `sent DTMF ${digits}${label ? ` to ${label}` : ''}`);
+  }
+
   /** Drop the leg(s) matching a node number / label. */
   disconnectNode(label: string): void {
     for (const [localCall, connection] of this.byLocalCall) {

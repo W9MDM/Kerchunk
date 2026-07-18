@@ -1,5 +1,6 @@
 import { memo } from 'react';
 import type { Topology, TopologyTreeNode } from '../../../shared/ipc';
+import { FontAwesomeIcon, faRotate } from '../icons';
 
 interface NetworkTreeProps {
   topology: Topology | null;
@@ -56,7 +57,7 @@ export const NetworkTree = memo(function NetworkTree({ topology, onRefresh }: Ne
           onClick={onRefresh}
           className="rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-medium transition hover:bg-accent"
         >
-          ↻ Refresh
+          <FontAwesomeIcon icon={faRotate} /> Refresh
         </button>
       </div>
       <div className="max-h-[28rem] overflow-y-auto pr-1">

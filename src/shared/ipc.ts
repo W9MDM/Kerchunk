@@ -1,4 +1,5 @@
 import type { ThemeMode, ThemeState } from './theme';
+import type { DirectoryNode } from './nodedirectory';
 
 export const IPC_CHANNELS = {
   THEME_GET_STATE: 'theme:get-state',
@@ -22,10 +23,15 @@ export const IPC_CHANNELS = {
   PROTOCOL_DTMF: 'protocol:dtmf',
   PROTOCOL_TOPOLOGY: 'protocol:topology',
   PROTOCOL_REFRESH_CONNECTIONS: 'protocol:refresh-connections',
+  PROTOCOL_NODE_DIRECTORY: 'protocol:node-directory',
+  PROTOCOL_NODE_STATUS: 'protocol:node-status',
+  PROTOCOL_SEND_DTMF: 'protocol:send-dtmf',
   SETTINGS_GET: 'settings:get',
   SETTINGS_SET: 'settings:set',
   WINDOW_SET_ZOOM: 'window:set-zoom',
 } as const;
+
+export type { DirectoryNode } from './nodedirectory';
 
 export interface TopologyTreeNode {
   node: string;
@@ -54,6 +60,10 @@ export interface SavedNode {
   permanent?: boolean;
   /** Connect receive-only (monitor). */
   monitor?: boolean;
+  /** Directory metadata retained so the node is recognizable at a glance. */
+  callsign?: string;
+  description?: string;
+  location?: string;
 }
 
 /** Persisted node identity + connection defaults. */
@@ -206,6 +216,12 @@ export interface KerchunkBridge {
   setZoom(factor: number): Promise<void>;
   getTopology(): Promise<Topology>;
   refreshConnections(): Promise<void>;
+  /** The full AllStarLink node directory (cached), for the node picker. */
+  getNodeDirectory(): Promise<DirectoryNode[]>;
+  /** Keyed status for a set of nodes (from the stats API), for live coloring. */
+  getNodeStatus(nodes: string[]): Promise<Record<string, boolean>>;
+  /** Send DTMF command digits to a connected node (or all up links). */
+  sendDtmf(digits: string, label?: string): Promise<void>;
   sendAudioFrame(payload: ProtocolAudioPayload): Promise<void>;
   txStart(): void;
   txStop(): void;
