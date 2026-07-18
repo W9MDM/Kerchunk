@@ -8,6 +8,7 @@ import { Meter } from './components/Meter';
 import { NetworkTree } from './components/NetworkTree';
 import { NodeIdentity } from './components/NodeIdentity';
 import { SettingsModal } from './components/SettingsModal';
+import kerchunkIcon from './assets/kerchunk-icon.png';
 
 // Memoized so audio-level re-renders (~12/s) don't re-render these subtrees,
 // which would starve the renderer's main thread and drop outbound mic frames.
@@ -17,16 +18,6 @@ const MemoActivityLog = memo(ActivityLog);
 const inputClass =
   'rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none transition ' +
   'placeholder:text-muted-foreground/70 focus:border-ring focus:ring-2 focus:ring-ring/30';
-
-function SignalGlyph() {
-  return (
-    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round">
-      <path d="M4.5 12.5a10.5 10.5 0 0 1 15 0" />
-      <path d="M8 15.5a6 6 0 0 1 8 0" />
-      <circle cx="12" cy="18.5" r="1.3" fill="white" stroke="none" />
-    </svg>
-  );
-}
 
 function MicGlyph() {
   return (
@@ -448,9 +439,7 @@ export default function App() {
         {/* Header */}
         <header className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-[12px] bg-gradient-to-b from-[#5b62f0] to-[#8b5cf6] shadow-card">
-              <SignalGlyph />
-            </div>
+            <img src={kerchunkIcon} alt="Kerchunk" className="h-10 w-10 rounded-[10px] shadow-card" />
             <div>
               <h1 className="text-lg font-semibold leading-tight">Kerchunk</h1>
               <p className="text-xs text-muted-foreground">Self-contained AllStar node</p>
