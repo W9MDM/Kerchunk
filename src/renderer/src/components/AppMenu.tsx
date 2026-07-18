@@ -8,6 +8,8 @@ import {
   faRotate,
   faLinkSlash,
   faCircleInfo,
+  faBolt,
+  faCircleCheck,
 } from '../icons';
 
 interface AppMenuProps {
@@ -18,6 +20,8 @@ interface AppMenuProps {
   onDisconnectAll: () => void;
   onAbout: () => void;
   canDisconnect: boolean;
+  advancedMode: boolean;
+  onToggleAdvanced: () => void;
 }
 
 /** In-app icon menu (hamburger → dropdown of icon actions). */
@@ -78,6 +82,14 @@ export function AppMenu(props: AppMenuProps) {
           {item(faRotate, 'Refresh network', props.onRefresh)}
           {item(faLinkSlash, 'Disconnect all', props.onDisconnectAll, !props.canDisconnect)}
           <div className="my-1 border-t border-border" />
+          {item(
+            faBolt,
+            <span className="flex flex-1 items-center justify-between gap-2">
+              Advanced mode
+              {props.advancedMode && <FontAwesomeIcon icon={faCircleCheck} className="text-primary" />}
+            </span>,
+            props.onToggleAdvanced,
+          )}
           {item(faGear, 'Settings', props.onSettings)}
           {item(faCircleInfo, 'About Kerchunk', props.onAbout)}
         </div>

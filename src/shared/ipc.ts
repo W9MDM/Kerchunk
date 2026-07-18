@@ -109,6 +109,12 @@ export interface NodeSettings {
   audioInput?: string;
   /** Selected speaker deviceId ('' / undefined = system default). */
   audioOutput?: string;
+  /** Advanced mode: reveal direct-address linking and IAX link credentials. */
+  advancedMode?: boolean;
+  /** IAX username for direct links to a private node/hub (advanced). */
+  iaxUser?: string;
+  /** IAX secret for direct links to a private node/hub (advanced). */
+  iaxSecret?: string;
   /** Transmit an MDC1200 PTT-ID burst. */
   mdcEnabled?: boolean;
   /** MDC1200 unit ID as 4-digit hex (e.g. "1234"). */

@@ -146,6 +146,9 @@ export default function App() {
   const [audioOutput, setAudioOutput] = useState('');
   const [recentNodes, setRecentNodes] = useState<SavedNode[]>([]);
   const [dtmfCommands, setDtmfCommands] = useState<DtmfCommand[]>([]);
+  const [advancedMode, setAdvancedMode] = useState(false);
+  const [iaxUser, setIaxUser] = useState('');
+  const [iaxSecret, setIaxSecret] = useState('');
   const ttsEnabledRef = useRef(false);
   const audioEngineRef = useRef<AudioEngine | null>(null);
   const didAutoLink = useRef(false);
@@ -194,6 +197,9 @@ export default function App() {
     audioOutput,
     recentNodes,
     dtmfCommands,
+    advancedMode,
+    iaxUser,
+    iaxSecret,
     ...overrides,
   });
 
@@ -250,6 +256,9 @@ export default function App() {
       }
       if (settings.recentNodes) setRecentNodes(settings.recentNodes);
       if (settings.dtmfCommands) setDtmfCommands(settings.dtmfCommands);
+      if (typeof settings.advancedMode === 'boolean') setAdvancedMode(settings.advancedMode);
+      if (settings.iaxUser) setIaxUser(settings.iaxUser);
+      if (settings.iaxSecret) setIaxSecret(settings.iaxSecret);
       if (settings.myNode) void window.electronAPI.getNodeInfo(settings.myNode).then(setSelfInfo);
     });
     void window.electronAPI.getThemeState().then(setTheme);
@@ -604,12 +613,14 @@ export default function App() {
           password: wtPassword,
         });
       } else {
+        // Direct-address links can use dedicated IAX credentials (advanced), else
+        // fall back to the node's own number/secret.
         await window.electronAPI.connect({
           node: node || undefined,
           host: host || undefined,
           calledNumber: node || undefined,
-          username: myNode.trim() || undefined,
-          secret: secret || undefined,
+          username: (host && iaxUser.trim()) || myNode.trim() || undefined,
+          secret: (host && iaxSecret) || secret || undefined,
           monitor,
         });
       }
@@ -680,6 +691,22 @@ export default function App() {
   const handleModeChange = (next: 'node' | 'guest') => {
     setMode(next);
     void window.electronAPI.saveSettings(buildSettings({ mode: next }));
+  };
+  const handleAdvancedToggle = () => {
+    setAdvancedMode((prev) => {
+      const next = !prev;
+      void window.electronAPI.saveSettings(buildSettings({ advancedMode: next }));
+      log(next ? 'Advanced mode on — direct linking & IAX credentials enabled.' : 'Advanced mode off.');
+      return next;
+    });
+  };
+  const handleIaxUserChange = (v: string) => {
+    setIaxUser(v);
+    void persist({ iaxUser: v });
+  };
+  const handleIaxSecretChange = (v: string) => {
+    setIaxSecret(v);
+    void persist({ iaxSecret: v });
   };
   const handleMdcEnabledChange = (on: boolean) => {
     setMdcEnabled(on);
@@ -821,6 +848,8 @@ export default function App() {
               onDisconnectAll={() => void handleDisconnectAll()}
               onAbout={handleAbout}
               canDisconnect={connections.length > 0}
+              advancedMode={advancedMode}
+              onToggleAdvanced={handleAdvancedToggle}
             />
           </div>
         </header>
@@ -902,15 +931,17 @@ export default function App() {
             <FontAwesomeIcon icon={faMagnifyingGlass} /> Search the node directory
           </button>
 
-          <div className="grid gap-2.5 sm:grid-cols-2">
+          <div className={`grid gap-2.5 ${advancedMode ? 'sm:grid-cols-2' : ''}`}>
             <input value={connectNode} onChange={(e) => setConnectNode(e.target.value)} inputMode="numeric" className={inputClass} placeholder="Link to node number" />
-            <input
-              value={connectHost}
-              onChange={(e) => setConnectHost(e.target.value)}
-              disabled={mode === 'guest'}
-              className={`${inputClass} disabled:opacity-40`}
-              placeholder={mode === 'guest' ? 'node number required' : '…or direct address'}
-            />
+            {advancedMode && (
+              <input
+                value={connectHost}
+                onChange={(e) => setConnectHost(e.target.value)}
+                disabled={mode === 'guest'}
+                className={`${inputClass} disabled:opacity-40`}
+                placeholder={mode === 'guest' ? 'node number required' : '…or direct address (host:port)'}
+              />
+            )}
           </div>
 
           {(savedNodes.length > 0 || recentNodes.length > 0) && (
@@ -1050,6 +1081,11 @@ export default function App() {
         audioOutput={audioOutput}
         onAudioInputChange={handleAudioInputChange}
         onAudioOutputChange={handleAudioOutputChange}
+        advancedMode={advancedMode}
+        iaxUser={iaxUser}
+        iaxSecret={iaxSecret}
+        onIaxUserChange={handleIaxUserChange}
+        onIaxSecretChange={handleIaxSecretChange}
         mdcEnabled={mdcEnabled}
         mdcUnitId={mdcUnitId}
         mdcTiming={mdcTiming}
