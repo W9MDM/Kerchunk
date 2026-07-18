@@ -108,7 +108,7 @@ export function encodeMdcBurst(
   op: number = MDC_OP_PTT_ID,
   arg: number = MDC_ARG_PTT_ID,
   sampleRate = 8000,
-  amplitude = 0.1,
+  amplitude = 0.18,
   tailMs = 0,
 ): Int16Array {
   const bytes = LEADER.concat(buildMdcFrame(op, arg, unitId));
