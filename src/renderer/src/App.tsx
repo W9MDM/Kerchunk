@@ -486,6 +486,7 @@ export default function App() {
           onSort={setSortMode}
           onUnlink={(label) => void handleDisconnect(label)}
           onUnlinkAll={() => void handleDisconnectAll()}
+          onRefresh={() => void refreshTopology()}
         />
 
         {/* Network map (tree of the mesh you're linked into) */}
