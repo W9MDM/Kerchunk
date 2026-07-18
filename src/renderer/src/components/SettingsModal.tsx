@@ -58,6 +58,12 @@ interface SettingsModalProps {
   pttMode: 'hold' | 'toggle';
   onPttKeyChange: (code: string) => void;
   onPttModeChange: (mode: 'hold' | 'toggle') => void;
+  mdcEnabled: boolean;
+  mdcUnitId: string;
+  mdcTiming: 'start' | 'end' | 'both';
+  onMdcEnabledChange: (on: boolean) => void;
+  onMdcUnitIdChange: (id: string) => void;
+  onMdcTimingChange: (t: 'start' | 'end' | 'both') => void;
   registered: boolean;
   onRegister: () => void;
   onSave: () => void;
@@ -294,6 +300,49 @@ export function SettingsModal(props: SettingsModalProps) {
                 ? 'Hold the key to transmit; release to stop. Works when the window is focused.'
                 : 'Press the key to start transmitting; press again to stop.'}
             </p>
+          </div>
+
+          {/* MDC1200 PTT ID */}
+          <div>
+            <div className="mb-2 flex items-center justify-between">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">MDC1200 PTT ID</h3>
+              <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={props.mdcEnabled}
+                  onChange={(e) => props.onMdcEnabledChange(e.target.checked)}
+                />
+                Enable
+              </label>
+            </div>
+            {props.mdcEnabled && (
+              <div className="grid gap-2.5">
+                <input
+                  value={props.mdcUnitId}
+                  onChange={(e) => props.onMdcUnitIdChange(e.target.value.replace(/[^0-9a-fA-F]/g, '').slice(0, 4))}
+                  className={inputClass}
+                  placeholder="Unit ID (4 hex digits, e.g. 1234)"
+                />
+                <div className="flex rounded-lg bg-muted p-0.5 text-sm">
+                  {(['start', 'end', 'both'] as const).map((t) => (
+                    <button
+                      key={t}
+                      onClick={() => props.onMdcTimingChange(t)}
+                      className={`flex-1 rounded-md px-3 py-1.5 font-medium capitalize transition ${
+                        props.mdcTiming === t
+                          ? 'bg-card text-foreground shadow-sm'
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      {t === 'start' ? 'On key-up' : t === 'end' ? 'On key-down' : 'Both'}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Sends your Motorola MDC1200 unit ID as a data burst {props.mdcTiming === 'both' ? 'at the start and end of' : props.mdcTiming === 'end' ? 'at the end of' : 'at the start of'} each transmission.
+                </p>
+              </div>
+            )}
           </div>
 
           <label className="flex items-center gap-2 text-sm text-muted-foreground">

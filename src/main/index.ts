@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, Menu, nativeTheme, screen } from 'electron';
+import { app, BrowserWindow, globalShortcut, ipcMain, Menu, nativeTheme, screen } from 'electron';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -6,6 +6,7 @@ import { KerchunkNode, type AudioCodec } from '../protocol/node.js';
 import { DEFAULT_IAX_PORT } from '../protocol/resolver.js';
 import { fetchWebTransceiverToken } from '../protocol/wtportal.js';
 import { fetchNodeInfo } from '../protocol/nodeinfo.js';
+import { encodeMdcBurst, parseUnitId } from '../shared/mdc1200.js';
 import { decodeG711Chunk, encodeG711Chunk } from '../shared/audio.js';
 import {
   IPC_CHANNELS,
@@ -149,6 +150,11 @@ function createWindow() {
     if (mainWindow && !mainWindow.isVisible()) revealWindow();
   }, 4000);
 
+  // The global hotkey is only active while unfocused; the renderer owns it when
+  // focused (so hold-to-talk works there).
+  mainWindow.on('focus', () => globalShortcut.unregisterAll());
+  mainWindow.on('blur', () => registerGlobalHotkey());
+
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
@@ -161,6 +167,59 @@ function broadcastTheme(mode: ThemeMode = readThemePreference()) {
 
   const resolved = resolveTheme(mode, nativeTheme.shouldUseDarkColors);
   mainWindow.webContents.send(THEME_CHANNELS.STATE_CHANGED, { mode, resolved });
+}
+
+// ---- Global PTT hotkey ------------------------------------------------------
+// globalShortcut fires only when the window is UNFOCUSED (while focused, the
+// renderer's own keydown/keyup handles hold + toggle). It can't detect key
+// release, so an unfocused press toggles transmit.
+let pttAccelerator: string | null = null;
+
+/** Map a KeyboardEvent.code to an Electron accelerator, or null if unmappable. */
+function codeToAccelerator(code: string): string | null {
+  if (!code) return null;
+  if (code === 'Space') return 'Space';
+  if (code.startsWith('Key')) return code.slice(3);
+  if (code.startsWith('Digit')) return code.slice(5);
+  if (code.startsWith('Numpad') && /Numpad[0-9]/.test(code)) return `num${code.slice(6)}`;
+  if (/^F([1-9]|1[0-9]|2[0-4])$/.test(code)) return code;
+  const named: Record<string, string> = {
+    ArrowUp: 'Up',
+    ArrowDown: 'Down',
+    ArrowLeft: 'Left',
+    ArrowRight: 'Right',
+    Backquote: '`',
+    Minus: '-',
+    Equal: '=',
+    BracketLeft: '[',
+    BracketRight: ']',
+    Backslash: '\\',
+    Semicolon: ';',
+    Quote: "'",
+    Comma: ',',
+    Period: '.',
+    Slash: '/',
+    Insert: 'Insert',
+    Delete: 'Delete',
+    Home: 'Home',
+    End: 'End',
+    PageUp: 'PageUp',
+    PageDown: 'PageDown',
+    Tab: 'Tab',
+  };
+  return named[code] ?? null;
+}
+
+function registerGlobalHotkey() {
+  globalShortcut.unregisterAll();
+  if (!pttAccelerator || mainWindow?.isFocused()) return;
+  try {
+    globalShortcut.register(pttAccelerator, () => {
+      mainWindow?.webContents.send(IPC_CHANNELS.PROTOCOL_PTT_HOTKEY);
+    });
+  } catch {
+    // unsupported accelerator — the focused (renderer) handler still works
+  }
 }
 
 function sendProtocolState(state: string) {
@@ -197,7 +256,20 @@ function ensureNode(identity?: { username?: string; secret?: string }) {
   }
   // Keep identity current even if the node already existed from an earlier action.
   protocolNode.setIdentity(identity?.username, identity?.secret);
+  applyMdcConfig();
   return protocolNode;
+}
+
+/** Push the operator's MDC1200 settings into the running node. */
+function applyMdcConfig() {
+  if (!protocolNode) return;
+  const s = readNodeSettings();
+  protocolNode.setMdcConfig({
+    enabled: Boolean(s.mdcEnabled),
+    unitId: parseUnitId(s.mdcUnitId ?? '') ?? 0,
+    timing: s.mdcTiming ?? 'start',
+    encode: encodeMdcBurst,
+  });
 }
 
 app.whenReady().then(() => {
@@ -300,6 +372,7 @@ app.whenReady().then(() => {
 
   ipcMain.handle(IPC_CHANNELS.SETTINGS_SET, (_event, settings: NodeSettings) => {
     writeNodeSettings(settings);
+    applyMdcConfig();
   });
 
   ipcMain.handle(IPC_CHANNELS.WINDOW_SET_ZOOM, (_event, factor: number) => {
@@ -323,6 +396,11 @@ app.whenReady().then(() => {
     protocolNode?.notifyTransmitStop();
   });
 
+  ipcMain.on(IPC_CHANNELS.PROTOCOL_SET_HOTKEY, (_event, code: string) => {
+    pttAccelerator = codeToAccelerator(code);
+    registerGlobalHotkey();
+  });
+
   ipcMain.on(IPC_CHANNELS.PROTOCOL_AUDIO_TX, (_event, payload: ProtocolAudioPayload) => {
     // Local mic frame → the node's local conference port (fire-and-forget).
     protocolNode?.pushLocalAudio(new Uint8Array(payload.frame));
@@ -338,6 +416,8 @@ app.whenReady().then(() => {
     }
   });
 });
+
+app.on('will-quit', () => globalShortcut.unregisterAll());
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
