@@ -898,11 +898,8 @@ export class KerchunkNode extends EventEmitter<NodeEventMap> {
         }
         c.rxQueue.shift(); // keep peer RX from backing up during the burst
       }
-      // Burst just finished: re-key so the following voice re-establishes cleanly
-      // (prevents the far end dropping between the ID and the operator's audio).
-      if (this.mdcTxFrames.length === 0) {
-        for (const c of upLegs) if (!c.monitor) c.leg.markKeyStart();
-      }
+      // NB: do NOT re-key after the burst — the voice must continue the SAME
+      // stream so the ID + audio are one transmission, not two.
       return;
     }
     // setInterval ticks slightly slower than the 50 fps audio rate, so process
