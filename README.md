@@ -57,7 +57,13 @@ across restarts.
 - **Collapsible sections** — every panel minimizes (state remembered); the
   Transmit panel keeps a compact PTT button even when collapsed.
 - **In-app menu** — a Font Awesome menu (directory, register, refresh,
-  disconnect all, settings, about).
+  disconnect all, advanced mode, settings, about).
+- **Runs in the background** — optional system-tray icon with close-to-tray and
+  launch-at-startup (Settings → General).
+- **Backup / migrate** — export and import your settings and saved nodes as JSON
+  (Settings → General).
+- **Advanced mode** — reveals direct-address linking and custom IAX link
+  credentials for private nodes/hubs (off by default).
 - **Tabbed Settings** — Node, Saved nodes, Hotkey, Audio, MDC1200, and
   Appearance; everything persists, including the window size and Node/Web-TX mode.
 

@@ -317,7 +317,7 @@ export class KerchunkNode extends EventEmitter<NodeEventMap> {
     this.linkUsername = options.linkUsername ?? 'radio';
     this.reportStats = options.reportStats ?? true;
     this.statpostUrl = options.statpostUrl ?? DEFAULT_STATPOST_URL;
-    this.appVersion = options.appVersion ?? '0.4.4';
+    this.appVersion = options.appVersion ?? '0.5.0';
 
     this.socket = this.createBoundSocket(this.boundPort);
   }

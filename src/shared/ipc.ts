@@ -28,6 +28,8 @@ export const IPC_CHANNELS = {
   PROTOCOL_SEND_DTMF: 'protocol:send-dtmf',
   SETTINGS_GET: 'settings:get',
   SETTINGS_SET: 'settings:set',
+  SETTINGS_EXPORT: 'settings:export',
+  SETTINGS_IMPORT: 'settings:import',
   WINDOW_SET_ZOOM: 'window:set-zoom',
 } as const;
 
@@ -109,6 +111,10 @@ export interface NodeSettings {
   audioInput?: string;
   /** Selected speaker deviceId ('' / undefined = system default). */
   audioOutput?: string;
+  /** Keep running in the tray when the window is closed (instead of quitting). */
+  closeToTray?: boolean;
+  /** Launch Kerchunk automatically when you sign in. */
+  launchOnStartup?: boolean;
   /** Advanced mode: reveal direct-address linking and IAX link credentials. */
   advancedMode?: boolean;
   /** IAX username for direct links to a private node/hub (advanced). */
@@ -242,6 +248,10 @@ export interface KerchunkBridge {
   hangup(): Promise<void>;
   getSettings(): Promise<NodeSettings>;
   saveSettings(settings: NodeSettings): Promise<void>;
+  /** Write the given settings to a user-chosen JSON file. Returns false if cancelled. */
+  exportSettings(settings: NodeSettings): Promise<boolean>;
+  /** Read settings from a user-chosen JSON file (null if cancelled/invalid). */
+  importSettings(): Promise<NodeSettings | null>;
   setZoom(factor: number): Promise<void>;
   getTopology(): Promise<Topology>;
   refreshConnections(): Promise<void>;
