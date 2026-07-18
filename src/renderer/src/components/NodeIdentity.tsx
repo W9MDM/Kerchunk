@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { FontAwesomeIcon, faLocationDot, faUser } from '../icons';
+import { FontAwesomeIcon, faLocationDot, faUser, faCircleCheck } from '../icons';
 
 interface NodeIdentityProps {
   node: string;
@@ -12,6 +12,7 @@ interface NodeIdentityProps {
   transmitting: boolean;
   receiving: boolean;
   guest: boolean;
+  registered: boolean;
   heardMdc?: string | null;
 }
 
@@ -28,9 +29,12 @@ export const NodeIdentity = memo(function NodeIdentity({
   transmitting,
   receiving,
   guest,
+  registered,
   heardMdc,
 }: NodeIdentityProps) {
-  const who = [callsign, operatorName].filter(Boolean).join(', ');
+  // The big line already shows the callsign in guest mode, so only add it to the
+  // meta row in node mode — no repeating it three times across the card.
+  const who = guest ? operatorName : [callsign, operatorName].filter(Boolean).join(', ');
   return (
     <section className="relative overflow-hidden rounded-2xl bg-primary p-4 text-white shadow-card">
       {/* keyed bar: green when receiving, red when transmitting */}
@@ -48,7 +52,17 @@ export const NodeIdentity = memo(function NodeIdentity({
         >
           PTT
         </span>
-        <span className="truncate text-sm font-semibold">{callsign ?? (guest ? 'Guest' : '')}</span>
+        {guest ? (
+          <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold">Guest</span>
+        ) : registered ? (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-2.5 py-0.5 text-xs font-semibold" title="Registered with AllStarLink">
+            <FontAwesomeIcon icon={faCircleCheck} /> Registered
+          </span>
+        ) : (
+          <span className="rounded-full bg-black/20 px-2.5 py-0.5 text-xs font-medium text-white/70" title="Not registered with AllStarLink">
+            Not registered
+          </span>
+        )}
       </div>
 
       <div className="mt-1 flex items-baseline justify-center gap-2">

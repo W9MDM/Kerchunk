@@ -837,6 +837,7 @@ export default function App() {
           transmitting={transmitting}
           receiving={receiving}
           guest={guestMode}
+          registered={registered}
           heardMdc={heardMdc}
         />
 
