@@ -100,8 +100,10 @@ export function buildMdcFrame(op: number, arg: number, unitId: number): number[]
  * Encode an MDC1200 burst to PCM (Int16) at the given sample rate.
  *
  * `amplitude` is kept below voice level so the burst isn't "hot" into a
- * repeater. `tailMs` appends trailing silence; the caller adds a tail only for
- * an end-of-transmission ID (never between a key-up ID and the following voice).
+ * repeater. `leadMs` prepends silence so the link/repeater keys up and the far
+ * decoder locks BEFORE the data arrives (otherwise the sync gets clipped and
+ * the burst isn't caught). `tailMs` appends trailing silence; the caller adds a
+ * tail only for an end-of-transmission ID.
  */
 export function encodeMdcBurst(
   unitId: number,
@@ -110,12 +112,15 @@ export function encodeMdcBurst(
   sampleRate = 8000,
   amplitude = 0.18,
   tailMs = 0,
+  leadMs = 250,
 ): Int16Array {
   const bytes = LEADER.concat(buildMdcFrame(op, arg, unitId));
   const incrSame = Math.round((FREQ_SAME / sampleRate) * CIRCLE);
   const incrDiff = Math.round((FREQ_DIFF / sampleRate) * CIRCLE);
   const samplesPerBit = sampleRate / BAUD;
   const out: number[] = [];
+  const lead = Math.max(0, Math.round((leadMs / 1000) * sampleRate));
+  for (let i = 0; i < lead; i += 1) out.push(0);
   let phase = 0;
   let lastBit = 0;
   let emitted = 0;
