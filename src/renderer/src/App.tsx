@@ -245,8 +245,12 @@ export default function App() {
 
   /** Register with AllStarLink if we haven't yet (best-effort, node mode). */
   const ensureRegistered = async () => {
+    if (registered) return;
     const node = myNode.trim();
-    if (registered || !node || !secret) return;
+    if (!node || !secret) {
+      log('To register, set your node number and secret in Settings (gear icon).');
+      return;
+    }
     log(`Registering node ${node} with AllStarLink…`);
     try {
       const result = await window.electronAPI.register({ node, password: secret });
