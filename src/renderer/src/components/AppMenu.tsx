@@ -10,6 +10,7 @@ import {
   faCircleInfo,
   faBolt,
   faCircleCheck,
+  faWandMagicSparkles,
 } from '../icons';
 
 interface AppMenuProps {
@@ -19,6 +20,7 @@ interface AppMenuProps {
   onRefresh: () => void;
   onDisconnectAll: () => void;
   onAbout: () => void;
+  onSetupWizard: () => void;
   canDisconnect: boolean;
   advancedMode: boolean;
   onToggleAdvanced: () => void;
@@ -91,6 +93,7 @@ export function AppMenu(props: AppMenuProps) {
             props.onToggleAdvanced,
           )}
           {item(faGear, 'Settings', props.onSettings)}
+          {item(faWandMagicSparkles, 'Setup wizard', props.onSetupWizard)}
           {item(faCircleInfo, 'About Kerchunk', props.onAbout)}
         </div>
       )}

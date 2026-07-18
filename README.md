@@ -33,6 +33,10 @@ across restarts.
 
 ## Features
 
+- **First-run setup wizard** — a step-by-step walkthrough on first launch
+  (mode → credentials → audio) so you're on the air in a minute. Re-runnable
+  any time from the menu.
+
 - **Node directory** (📡 button by the gear) — searches the full AllStarLink
   node database, grouped by country and US state, so you can find and one-click
   link a node without knowing its number. Saving a node keeps its callsign,

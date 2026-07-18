@@ -12,6 +12,7 @@ import { SettingsModal } from './components/SettingsModal';
 import { NodeDirectory } from './components/NodeDirectory';
 import { DtmfPad } from './components/DtmfPad';
 import { AppMenu } from './components/AppMenu';
+import { SetupWizard } from './components/SetupWizard';
 import kerchunkIcon from './assets/kerchunk-icon.png';
 import { decodeG711Chunk } from '../../shared/audio';
 import MdcDecoderWorker from './audio/mdcDecoder.worker?worker';
@@ -130,6 +131,7 @@ export default function App() {
   const [trace, setTraceEnabled] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [directoryOpen, setDirectoryOpen] = useState(false);
+  const [setupOpen, setSetupOpen] = useState(false);
   const [keyedNumbers, setKeyedNumbers] = useState<Set<string>>(new Set());
   const [uiScale, setUiScale] = useState(0.75);
   const [accent, setAccent] = useState('#007aff');
@@ -269,7 +271,10 @@ export default function App() {
   };
 
   useEffect(() => {
-    void window.electronAPI.getSettings().then(applyLoadedSettings);
+    void window.electronAPI.getSettings().then((settings) => {
+      applyLoadedSettings(settings);
+      if (!settings.setupComplete) setSetupOpen(true); // first-run onboarding
+    });
     void window.electronAPI.getThemeState().then(setTheme);
     const disposers = [
       window.electronAPI.onThemeChange(setTheme),
@@ -726,6 +731,31 @@ export default function App() {
     setLaunchOnStartup(on);
     void persist({ launchOnStartup: on });
   };
+  const finishSetup = (values: Partial<NodeSettings>) => {
+    applyLoadedSettings(values);
+    void window.electronAPI.saveSettings(buildSettings({ ...values, setupComplete: true }));
+    setSetupOpen(false);
+    log('Setup complete.');
+    // Node mode with credentials → register straight away (using the fresh values,
+    // not the not-yet-committed React state).
+    if (values.mode !== 'guest' && values.myNode && values.secret) {
+      const node = values.myNode.trim();
+      log(`Registering node ${node} with AllStarLink…`);
+      void window.electronAPI
+        .register({ node, password: values.secret })
+        .then((r) => {
+          setRegistered(r.success);
+          log(r.success ? `Registered ${node} @ ${r.ipaddr ?? '?'}.` : `Registration failed: ${r.message ?? 'unknown error'}.`);
+          void window.electronAPI.getNodeInfo(node).then(setSelfInfo);
+        })
+        .catch(() => log('Registration error.'));
+    }
+  };
+  const skipSetup = () => {
+    setSetupOpen(false);
+    void persist({ setupComplete: true });
+  };
+
   const handleExportSettings = async () => {
     const ok = await window.electronAPI.exportSettings(buildSettings());
     if (ok) log('Settings exported.');
@@ -875,6 +905,7 @@ export default function App() {
               onRefresh={() => void handleRefresh()}
               onDisconnectAll={() => void handleDisconnectAll()}
               onAbout={handleAbout}
+              onSetupWizard={() => setSetupOpen(true)}
               canDisconnect={connections.length > 0}
               advancedMode={advancedMode}
               onToggleAdvanced={handleAdvancedToggle}
@@ -1141,6 +1172,13 @@ export default function App() {
         onSave={() => void handleSaveSettings()}
         trace={trace}
         onTraceToggle={(enabled) => void handleTraceToggle(enabled)}
+      />
+
+      <SetupWizard
+        open={setupOpen}
+        initial={{ mode, myNode, secret, operatorName, callsign, wtPassword, audioInput, audioOutput, ttsEnabled }}
+        onFinish={finishSetup}
+        onSkip={skipSetup}
       />
 
       <NodeDirectory
