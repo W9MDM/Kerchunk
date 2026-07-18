@@ -57,7 +57,7 @@ export default function App() {
   const [secret, setSecret] = useState('');
   const [connectNode, setConnectNode] = useState('');
   const [connectHost, setConnectHost] = useState('');
-  const [guestMode, setGuestMode] = useState(false);
+  const [mode, setMode] = useState<'node' | 'guest'>('node');
   const [callsign, setCallsign] = useState('');
   const [wtPassword, setWtPassword] = useState('');
   const [connections, setConnections] = useState<ProtocolConnectionInfo[]>([]);
@@ -138,12 +138,17 @@ export default function App() {
   const handleConnect = async () => {
     const node = connectNode.trim();
     const host = connectHost.trim();
+    const guestMode = mode === 'guest';
     if (!node && !host) {
       log('Enter a node number to link to (or a direct address).');
       return;
     }
     if (guestMode && (!callsign.trim() || !wtPassword)) {
-      log('Guest mode needs your callsign and allstarlink.org portal password.');
+      log('Web Transceiver needs your callsign and allstarlink.org portal password.');
+      return;
+    }
+    if (guestMode && !node) {
+      log('Web Transceiver needs a node number (the portal issues a token per node).');
       return;
     }
     log(`Linking to ${host || `node ${node}`}${guestMode ? ' as guest' : ''}…`);
@@ -272,49 +277,51 @@ export default function App() {
           </div>
 
           <div className="mt-6 grid gap-4 lg:grid-cols-[1fr_320px]">
-            <div className="grid content-start gap-2 rounded-xl border border-border bg-background/60 p-4 sm:grid-cols-2">
-              <input
-                value={myNode}
-                onChange={(event) => setMyNode(event.target.value)}
-                inputMode="numeric"
-                className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm"
-                placeholder="Your node number"
-              />
-              <input
-                value={secret}
-                onChange={(event) => setSecret(event.target.value)}
-                type="password"
-                className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm"
-                placeholder="Your node secret"
-              />
-              <input
-                value={connectNode}
-                onChange={(event) => setConnectNode(event.target.value)}
-                inputMode="numeric"
-                className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm"
-                placeholder="Link to node number"
-              />
-              <input
-                value={connectHost}
-                onChange={(event) => setConnectHost(event.target.value)}
-                className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm"
-                placeholder="…or direct address"
-              />
-              <label className="col-span-full mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                <input
-                  type="checkbox"
-                  checked={guestMode}
-                  onChange={(event) => setGuestMode(event.target.checked)}
-                />
-                Guest mode — Web Transceiver (no node number needed)
-              </label>
-              {guestMode && (
-                <>
+            <div className="grid content-start gap-3 rounded-xl border border-border bg-background/60 p-4">
+              <div className="flex gap-1 rounded-lg border border-border bg-background p-1">
+                {([
+                  { value: 'node', label: 'Node mode', hint: 'Use your ASL node number' },
+                  { value: 'guest', label: 'Web Transceiver', hint: 'No node number — callsign only' },
+                ] as const).map((tab) => (
+                  <button
+                    key={tab.value}
+                    onClick={() => setMode(tab.value)}
+                    title={tab.hint}
+                    className={`flex-1 rounded-md px-3 py-1.5 text-sm transition ${
+                      mode === tab.value
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+
+              {mode === 'node' ? (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <input
+                    value={myNode}
+                    onChange={(event) => setMyNode(event.target.value)}
+                    inputMode="numeric"
+                    className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm"
+                    placeholder="Your node number"
+                  />
+                  <input
+                    value={secret}
+                    onChange={(event) => setSecret(event.target.value)}
+                    type="password"
+                    className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm"
+                    placeholder="Your node secret"
+                  />
+                </div>
+              ) : (
+                <div className="grid gap-2 sm:grid-cols-2">
                   <input
                     value={callsign}
                     onChange={(event) => setCallsign(event.target.value)}
                     className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm"
-                    placeholder="Your callsign"
+                    placeholder="Your callsign (portal login)"
                   />
                   <input
                     value={wtPassword}
@@ -323,8 +330,25 @@ export default function App() {
                     className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm"
                     placeholder="allstarlink.org portal password"
                   />
-                </>
+                </div>
               )}
+
+              <div className="grid gap-2 sm:grid-cols-2">
+                <input
+                  value={connectNode}
+                  onChange={(event) => setConnectNode(event.target.value)}
+                  inputMode="numeric"
+                  className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm"
+                  placeholder="Link to node number"
+                />
+                <input
+                  value={connectHost}
+                  onChange={(event) => setConnectHost(event.target.value)}
+                  disabled={mode === 'guest'}
+                  className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm disabled:opacity-40"
+                  placeholder={mode === 'guest' ? 'node number required' : '…or direct address'}
+                />
+              </div>
             </div>
 
             <div className="rounded-xl border border-border bg-background/60 p-4">
@@ -350,12 +374,14 @@ export default function App() {
             >
               Save node info
             </button>
-            <button
-              onClick={() => void handleRegister()}
-              className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
-            >
-              Register
-            </button>
+            {mode === 'node' && (
+              <button
+                onClick={() => void handleRegister()}
+                className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+              >
+                Register
+              </button>
+            )}
             <button
               onClick={() => void handleConnect()}
               className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-accent hover:text-accent-foreground"
