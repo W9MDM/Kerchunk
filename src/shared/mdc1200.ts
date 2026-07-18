@@ -17,17 +17,17 @@
 
 /** Common MDC1200 opcode/arg for a PTT ID (unit identifies itself). */
 export const MDC_OP_PTT_ID = 0x01;
-export const MDC_ARG_PTT_ID = 0x00;
+export const MDC_ARG_PTT_ID = 0x80; // matches real Motorola PTT-ID bursts
 
 const CIRCLE = 2 ** 32; // 32-bit phase accumulator range
 const BAUD = 1200;
 const FREQ_SAME = 1200; // bit == previous bit
 const FREQ_DIFF = 1800; // bit != previous bit
 const SYNC = [0x07, 0x09, 0x2a, 0x44, 0x6f];
-// A longer 0x55 preamble than the 7-byte minimum so the receiver's bit-clock
-// (app_rpt / the reference decoder) reliably locks before the sync word — short
-// preambles decode only intermittently over a real link.
-const PREAMBLE_BYTES = 16;
+// Long 0x55 preamble matching real Motorola PTT-ID bursts (~350 ms measured
+// off-air). A short preamble sounds "too fast" and decodes only intermittently;
+// the long run-up gives the receiver's bit-clock ample time to lock.
+const PREAMBLE_BYTES = 40;
 const LEADER = [...new Array(PREAMBLE_BYTES).fill(0x55), ...SYNC];
 
 function reverseBits(value: number, bits: number): number {
