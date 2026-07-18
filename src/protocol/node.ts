@@ -23,8 +23,10 @@ export interface MdcConfig {
   enabled: boolean;
   unitId: number;
   timing: MdcTiming;
+  /** Burst amplitude 0..1 (operator-adjustable level). */
+  level: number;
   /** Injected MDC1200 burst encoder (kept out of the protocol layer). */
-  encode?: (unitId: number) => Int16Array;
+  encode?: (unitId: number, amplitude: number) => Int16Array;
 }
 
 const FRAME_TYPE_NAMES: Record<number, string> = {
@@ -278,7 +280,7 @@ export class KerchunkNode extends EventEmitter<NodeEventMap> {
 
   // MDC1200 PTT-ID transmit: config + a real-time burst playout queue (one
   // 20 ms frame per mix tick so the burst goes out at the correct baud).
-  private mdc: MdcConfig = { enabled: false, unitId: 0, timing: 'start' };
+  private mdc: MdcConfig = { enabled: false, unitId: 0, timing: 'start', level: 0.12 };
   private mdcTxFrames: Int16Array[] = [];
 
   // Stats reporting (app_rpt statpost).
@@ -650,7 +652,7 @@ export class KerchunkNode extends EventEmitter<NodeEventMap> {
     if (!this.mdc.enabled || !this.mdc.unitId || !this.mdc.encode) {
       return;
     }
-    const burst = this.mdc.encode(this.mdc.unitId);
+    const burst = this.mdc.encode(this.mdc.unitId, this.mdc.level);
     for (let i = 0; i < burst.length; i += this.frameSize) {
       const frame = new Int16Array(this.frameSize);
       frame.set(burst.subarray(i, i + this.frameSize));
@@ -891,15 +893,27 @@ export class KerchunkNode extends EventEmitter<NodeEventMap> {
     if (this.mdcTxFrames.length > 0) {
       const frame = this.mdcTxFrames.shift()!;
       const encoded = this.codec.encode(frame);
+      const legFrames = upLegs.map((c) => c.rxQueue.shift() ?? null);
+      // Send the CLEAN MDC burst to every link (never mixed with peer audio, or
+      // the far decoder would fail). Do NOT re-key after — the voice continues
+      // this same stream so the ID + audio are one transmission.
       for (const c of upLegs) {
         if (!c.monitor) {
           c.leg.sendAudio(encoded);
           this.txVoiceCount += 1;
         }
-        c.rxQueue.shift(); // keep peer RX from backing up during the burst
       }
-      // NB: do NOT re-key after the burst — the voice must continue the SAME
-      // stream so the ID + audio are one transmission, not two.
+      // Keep feeding the local speaker so RX isn't lost while the burst plays
+      // (e.g. an end-of-transmission ID with someone else talking).
+      if (legFrames.some(Boolean)) {
+        const inputs: MixInput[] = upLegs.map((c, i) => ({
+          id: `leg:${c.leg.localCall}`,
+          samples: legFrames[i] ?? this.silentFrame(),
+        }));
+        inputs.push({ id: 'local', samples: this.silentFrame() });
+        const localMix = mixMinusOne(inputs, this.frameSize).get('local');
+        if (localMix) this.emit('localAudio', this.codec.encode(localMix));
+      }
       return;
     }
     // setInterval ticks slightly slower than the 50 fps audio rate, so process

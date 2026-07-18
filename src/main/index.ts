@@ -264,11 +264,15 @@ function ensureNode(identity?: { username?: string; secret?: string }) {
 function applyMdcConfig() {
   if (!protocolNode) return;
   const s = readNodeSettings();
+  // Map the 0–100 UI level to a peak amplitude (100 ≈ 0.3, matching a real
+  // radio's ~0.19–0.36 peak with headroom); default 40 ≈ 0.12.
+  const level = ((s.mdcLevel ?? 40) / 100) * 0.3;
   protocolNode.setMdcConfig({
     enabled: Boolean(s.mdcEnabled),
     unitId: parseUnitId(s.mdcUnitId ?? '') ?? 0,
     timing: s.mdcTiming ?? 'start',
-    encode: encodeMdcBurst,
+    level,
+    encode: (id, amplitude) => encodeMdcBurst(id, undefined, undefined, 8000, amplitude),
   });
 }
 

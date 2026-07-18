@@ -86,6 +86,8 @@ export interface NodeSettings {
   mdcUnitId?: string;
   /** When to send the MDC1200 burst. */
   mdcTiming?: 'start' | 'end' | 'both';
+  /** MDC1200 burst level, 0–100 (percent of a sane max). */
+  mdcLevel?: number;
 }
 
 /** AllStarLink directory metadata for a node (identity header, list rows). */
