@@ -343,6 +343,25 @@ export default function App() {
     };
   }, [savedKey]);
 
+  // One-shot metadata backfill: fill in callsign/location/description for saved
+  // nodes that were remembered before we captured "who they are" (e.g. via Link).
+  const backfilledRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    for (const n of savedNodes) {
+      if (n.callsign || !/^\d+$/.test(n.number) || backfilledRef.current.has(n.number)) continue;
+      backfilledRef.current.add(n.number);
+      void window.electronAPI.getNodeInfo(n.number).then((info) => {
+        if (!info) return;
+        const patch: Partial<SavedNode> = {};
+        if (info.callsign) patch.callsign = info.callsign;
+        if (info.location) patch.location = info.location;
+        if (info.description) patch.description = info.description;
+        if (Object.keys(patch).length > 0) updateSaved(n.number, patch);
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [savedNodes]);
+
   // Speak connect/disconnect announcements as links come and go.
   useEffect(() => {
     const now = new Set(connections.map((c) => c.label));
@@ -377,6 +396,18 @@ export default function App() {
       void window.electronAPI.saveSettings(buildSettings({ savedNodes: next }));
       return next;
     });
+    // Backfill "who they are" from the stats API when the caller didn't supply it
+    // (e.g. remembered via Link rather than the directory's Save button).
+    if (/^\d+$/.test(number) && !extra?.callsign) {
+      void window.electronAPI.getNodeInfo(number).then((info) => {
+        if (!info) return;
+        const patch: Partial<SavedNode> = {};
+        if (info.callsign) patch.callsign = info.callsign;
+        if (info.location) patch.location = info.location;
+        if (info.description) patch.description = info.description;
+        if (Object.keys(patch).length > 0) updateSaved(number, patch);
+      });
+    }
   };
 
   const updateSaved = (number: string, patch: Partial<SavedNode>) => {
