@@ -24,10 +24,10 @@ const BAUD = 1200;
 const FREQ_SAME = 1200; // bit == previous bit
 const FREQ_DIFF = 1800; // bit != previous bit
 const SYNC = [0x07, 0x09, 0x2a, 0x44, 0x6f];
-// Long 0x55 preamble matching real Motorola PTT-ID bursts (~350 ms measured
-// off-air). A short preamble sounds "too fast" and decodes only intermittently;
-// the long run-up gives the receiver's bit-clock ample time to lock.
-const PREAMBLE_BYTES = 40;
+// Preamble length: enough 0x55 for the receiver's bit-clock to lock, but not so
+// long the sustained 1800 Hz tone becomes annoying. Real off-air 6402 bursts
+// carry little sustained clean 1800 Hz, so ~24 bytes (~200 ms) is a good balance.
+const PREAMBLE_BYTES = 24;
 const LEADER = [...new Array(PREAMBLE_BYTES).fill(0x55), ...SYNC];
 
 function reverseBits(value: number, bits: number): number {

@@ -125,6 +125,7 @@ export default function App() {
   const [mdcEnabled, setMdcEnabled] = useState(false);
   const [mdcUnitId, setMdcUnitId] = useState('');
   const [mdcTiming, setMdcTiming] = useState<'start' | 'end' | 'both'>('start');
+  const [mdcLevel, setMdcLevel] = useState(40);
   const [heardMdc, setHeardMdc] = useState<string | null>(null);
   const audioEngineRef = useRef<AudioEngine | null>(null);
   const didAutoLink = useRef(false);
@@ -163,6 +164,7 @@ export default function App() {
     mdcEnabled,
     mdcUnitId,
     mdcTiming,
+    mdcLevel,
     ...overrides,
   });
 
@@ -205,6 +207,7 @@ export default function App() {
       if (settings.mdcEnabled) setMdcEnabled(settings.mdcEnabled);
       if (settings.mdcUnitId) setMdcUnitId(settings.mdcUnitId);
       if (settings.mdcTiming) setMdcTiming(settings.mdcTiming);
+      if (typeof settings.mdcLevel === 'number') setMdcLevel(settings.mdcLevel);
       if (settings.myNode) void window.electronAPI.getNodeInfo(settings.myNode).then(setSelfInfo);
     });
     void window.electronAPI.getThemeState().then(setTheme);
@@ -491,6 +494,10 @@ export default function App() {
   const handleMdcTimingChange = (t: 'start' | 'end' | 'both') => {
     setMdcTiming(t);
     void persist({ mdcTiming: t });
+  };
+  const handleMdcLevelChange = (level: number) => {
+    setMdcLevel(level);
+    void persist({ mdcLevel: level });
   };
 
   // PTT hotkey: hold-to-talk or press-to-toggle, ignored while typing in a field.
@@ -795,9 +802,11 @@ export default function App() {
         mdcEnabled={mdcEnabled}
         mdcUnitId={mdcUnitId}
         mdcTiming={mdcTiming}
+        mdcLevel={mdcLevel}
         onMdcEnabledChange={handleMdcEnabledChange}
         onMdcUnitIdChange={handleMdcUnitIdChange}
         onMdcTimingChange={handleMdcTimingChange}
+        onMdcLevelChange={handleMdcLevelChange}
         registered={registered}
         onRegister={() => void handleRegister()}
         onSave={() => void handleSaveSettings()}

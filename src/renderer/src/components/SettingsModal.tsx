@@ -61,9 +61,11 @@ interface SettingsModalProps {
   mdcEnabled: boolean;
   mdcUnitId: string;
   mdcTiming: 'start' | 'end' | 'both';
+  mdcLevel: number;
   onMdcEnabledChange: (on: boolean) => void;
   onMdcUnitIdChange: (id: string) => void;
   onMdcTimingChange: (t: 'start' | 'end' | 'both') => void;
+  onMdcLevelChange: (level: number) => void;
   registered: boolean;
   onRegister: () => void;
   onSave: () => void;
@@ -337,6 +339,20 @@ export function SettingsModal(props: SettingsModalProps) {
                       {t === 'start' ? 'On key-up' : t === 'end' ? 'On key-down' : 'Both'}
                     </button>
                   ))}
+                </div>
+                <div>
+                  <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
+                    <span>Burst level</span>
+                    <span className="tabular-nums">{props.mdcLevel}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={5}
+                    max={100}
+                    value={props.mdcLevel}
+                    onChange={(e) => props.onMdcLevelChange(Number(e.target.value))}
+                    className="w-full accent-primary"
+                  />
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Sends your Motorola MDC1200 unit ID as a data burst {props.mdcTiming === 'both' ? 'at the start and end of' : props.mdcTiming === 'end' ? 'at the end of' : 'at the start of'} each transmission.
