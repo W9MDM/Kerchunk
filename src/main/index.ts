@@ -237,6 +237,10 @@ app.whenReady().then(() => {
     return protocolNode ? await protocolNode.getTopology() : { node: '', connections: [] };
   });
 
+  ipcMain.handle(IPC_CHANNELS.PROTOCOL_REFRESH_CONNECTIONS, async () => {
+    await protocolNode?.refreshConnections();
+  });
+
   ipcMain.handle(IPC_CHANNELS.SETTINGS_GET, () => readNodeSettings());
 
   ipcMain.handle(IPC_CHANNELS.SETTINGS_SET, (_event, settings: NodeSettings) => {

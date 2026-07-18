@@ -37,6 +37,7 @@ const electronAPI: KerchunkBridge = {
   getSettings: () => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_GET),
   saveSettings: (settings: NodeSettings) => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_SET, settings),
   getTopology: () => ipcRenderer.invoke(IPC_CHANNELS.PROTOCOL_TOPOLOGY),
+  refreshConnections: () => ipcRenderer.invoke(IPC_CHANNELS.PROTOCOL_REFRESH_CONNECTIONS),
   sendAudioFrame: (payload: ProtocolAudioPayload) => {
     // Fire-and-forget: a 50/s audio stream shouldn't pay for an invoke round-trip.
     ipcRenderer.send(IPC_CHANNELS.PROTOCOL_AUDIO_TX, payload);
