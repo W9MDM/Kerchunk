@@ -22,8 +22,59 @@ export class AudioEngine {
   private worklet: AudioWorkletNode | null = null;
   private playback: AudioWorkletNode | null = null;
   private transmitting = false;
+  private inputDeviceId = '';
+  private outputDeviceId = '';
 
   constructor(private readonly callbacks: AudioEngineCallbacks) {}
+
+  /** Choose the microphone / speaker devices (deviceId; '' = system default). */
+  async setDevices(input: string, output: string): Promise<void> {
+    const inputChanged = input !== this.inputDeviceId;
+    const outputChanged = output !== this.outputDeviceId;
+    this.inputDeviceId = input;
+    this.outputDeviceId = output;
+    if (!this.context) return; // applied on start()
+    if (outputChanged) await this.applyOutputDevice();
+    if (inputChanged) await this.applyInputDevice();
+  }
+
+  private micConstraints(): MediaStreamConstraints {
+    const base: MediaTrackConstraints = {
+      echoCancellation: true,
+      noiseSuppression: true,
+      autoGainControl: true,
+    };
+    if (this.inputDeviceId) base.deviceId = { exact: this.inputDeviceId };
+    return { audio: base };
+  }
+
+  /** Route playback to the chosen speaker (Chromium AudioContext.setSinkId). */
+  private async applyOutputDevice(): Promise<void> {
+    const ctx = this.context as (AudioContext & { setSinkId?: (id: string) => Promise<void> }) | null;
+    if (!ctx?.setSinkId) return; // unsupported — stays on the default device
+    try {
+      await ctx.setSinkId(this.outputDeviceId);
+    } catch {
+      // fall back to the default output
+    }
+  }
+
+  /** Swap the microphone input on a running context without a full restart. */
+  private async applyInputDevice(): Promise<void> {
+    const context = this.context;
+    if (!context || !this.worklet) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia(this.micConstraints());
+      this.source?.disconnect();
+      this.stream?.getTracks().forEach((track) => track.stop());
+      const source = context.createMediaStreamSource(stream);
+      source.connect(this.worklet);
+      this.stream = stream;
+      this.source = source;
+    } catch {
+      // keep the previous input if the new device can't be opened
+    }
+  }
 
   /** Gate microphone TX (push-to-talk). While false, no audio leaves the app. */
   setTransmitting(on: boolean): void {
@@ -90,9 +141,7 @@ export class AudioEngine {
     const playbackUrl = new URL('kerchunk-playback-worklet.js', window.location.href);
     await context.audioWorklet.addModule(playbackUrl.href);
 
-    const stream = await navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-    });
+    const stream = await navigator.mediaDevices.getUserMedia(this.micConstraints());
     const source = context.createMediaStreamSource(stream);
     const worklet = new AudioWorkletNode(context, 'kerchunk-capture');
     worklet.port.onmessage = (event: MessageEvent<Float32Array>) => {
@@ -120,6 +169,7 @@ export class AudioEngine {
     this.source = source;
     this.worklet = worklet;
     this.playback = playback;
+    if (this.outputDeviceId) await this.applyOutputDevice();
     await this.resume();
   }
 

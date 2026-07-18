@@ -16,7 +16,7 @@ interface NodeIdentityProps {
 }
 
 
-/** The big node-identity card (Transceive-style) — who *you* are on the network. */
+/** The compact node-identity card (Transceive-style) — who *you* are on the network. */
 export const NodeIdentity = memo(function NodeIdentity({
   node,
   callsign,
@@ -30,8 +30,9 @@ export const NodeIdentity = memo(function NodeIdentity({
   guest,
   heardMdc,
 }: NodeIdentityProps) {
+  const who = [callsign, operatorName].filter(Boolean).join(', ');
   return (
-    <section className="relative overflow-hidden rounded-2xl bg-primary p-5 text-white shadow-card">
+    <section className="relative overflow-hidden rounded-2xl bg-primary p-4 text-white shadow-card">
       {/* keyed bar: green when receiving, red when transmitting */}
       <div
         className={`absolute inset-x-0 top-0 h-1 transition-opacity ${
@@ -39,7 +40,7 @@ export const NodeIdentity = memo(function NodeIdentity({
         }`}
       />
 
-      <div className="flex items-start justify-between">
+      <div className="flex items-center justify-between gap-2">
         <span
           className={`rounded-md px-2 py-0.5 text-xs font-bold tracking-wide transition ${
             transmitting ? 'bg-white text-red-600' : 'bg-white/15 text-white/70'
@@ -47,32 +48,34 @@ export const NodeIdentity = memo(function NodeIdentity({
         >
           PTT
         </span>
-        <span className="text-sm font-semibold">{callsign ?? (guest ? 'Guest' : '')}</span>
+        <span className="truncate text-sm font-semibold">{callsign ?? (guest ? 'Guest' : '')}</span>
       </div>
 
-      <div className="mt-1 text-center">
-        <div className="text-4xl font-bold tabular-nums tracking-tight">{node || '—'}</div>
-        <div className="text-sm text-white/80">{description || (guest ? 'Web Transceiver' : 'Radioless Node')}</div>
+      <div className="mt-1 flex items-baseline justify-center gap-2">
+        <span className="text-3xl font-bold leading-none tabular-nums tracking-tight">{node || '—'}</span>
+      </div>
+      <div className="text-center text-xs text-white/80">
+        {description || (guest ? 'Web Transceiver' : 'Radioless Node')}
       </div>
 
-      <div className="mt-4 space-y-1 text-sm text-white/90">
+      <div className="mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-0.5 text-xs text-white/90">
         {location && (
-          <div className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-1.5">
             <FontAwesomeIcon icon={faLocationDot} className="text-white/60" />
             {location}
-          </div>
+          </span>
         )}
-        {(callsign || operatorName) && (
-          <div className="flex items-center gap-2">
+        {who && (
+          <span className="inline-flex items-center gap-1.5">
             <FontAwesomeIcon icon={faUser} className="text-white/60" />
-            {[callsign, operatorName].filter(Boolean).join(', ')}
-          </div>
+            {who}
+          </span>
         )}
       </div>
 
-      <div className="mt-4 flex items-center justify-between gap-2 text-xs">
-        <span className="rounded-full bg-white/15 px-2.5 py-1 font-medium">{state}</span>
-        <div className="flex items-center gap-2">
+      <div className="mt-2.5 flex items-center justify-between gap-2 text-xs">
+        <span className="truncate rounded-full bg-white/15 px-2.5 py-1 font-medium">{state}</span>
+        <div className="flex shrink-0 items-center gap-2">
           {heardMdc && (
             <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-300 px-2.5 py-1 font-semibold text-amber-950">
               <span className="h-1.5 w-1.5 rounded-full bg-amber-700" />

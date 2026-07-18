@@ -1,6 +1,7 @@
 import { memo } from 'react';
 import type { ProtocolConnectionInfo } from '../../../shared/ipc';
-import { FontAwesomeIcon, faLocationDot, faUser, faRotate, faLinkSlash } from '../icons';
+import { CollapsibleSection } from './CollapsibleSection';
+import { FontAwesomeIcon, faLocationDot, faUser, faRotate, faLinkSlash, faSatelliteDish } from '../icons';
 
 export type SortMode = 'keyed' | 'number';
 
@@ -33,32 +34,34 @@ export const LinkedNodes = memo(function LinkedNodes({
   });
 
   return (
-    <section className="rounded-2xl border border-border bg-card p-5 shadow-card">
-      <div className="mb-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <h2 className="text-sm font-semibold">Linked Nodes</h2>
+    <CollapsibleSection
+      id="linked"
+      title="Linked Nodes"
+      icon={faSatelliteDish}
+      right={
+        <>
           <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium tabular-nums text-muted-foreground">
             {connections.length}
           </span>
-        </div>
-        <div className="flex rounded-lg bg-muted p-0.5 text-xs">
-          {([
-            { v: 'keyed', l: 'Last Keyed' },
-            { v: 'number', l: 'Number' },
-          ] as const).map((s) => (
-            <button
-              key={s.v}
-              onClick={() => onSort(s.v)}
-              className={`rounded-md px-2.5 py-1 font-medium transition ${
-                sortMode === s.v ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              {s.l}
-            </button>
-          ))}
-        </div>
-      </div>
-
+          <div className="flex rounded-lg bg-muted p-0.5 text-xs">
+            {([
+              { v: 'keyed', l: 'Last Keyed' },
+              { v: 'number', l: 'Number' },
+            ] as const).map((s) => (
+              <button
+                key={s.v}
+                onClick={() => onSort(s.v)}
+                className={`rounded-md px-2.5 py-1 font-medium transition ${
+                  sortMode === s.v ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {s.l}
+              </button>
+            ))}
+          </div>
+        </>
+      }
+    >
       {connections.length === 0 ? (
         <p className="text-sm text-muted-foreground">No direct links yet. Pick a node above and press Link.</p>
       ) : (
@@ -125,6 +128,6 @@ export const LinkedNodes = memo(function LinkedNodes({
           <FontAwesomeIcon icon={faRotate} /> Refresh
         </button>
       </div>
-    </section>
+    </CollapsibleSection>
   );
 });

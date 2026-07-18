@@ -1,11 +1,13 @@
+import { CollapsibleSection } from './CollapsibleSection';
+import { faListUl } from '../icons';
+
 interface ActivityLogProps {
   entries: string[];
 }
 
 export function ActivityLog({ entries }: ActivityLogProps) {
   return (
-    <div className="rounded-2xl border border-border bg-card p-5 shadow-card">
-      <div className="mb-3 text-sm font-semibold text-foreground">Activity</div>
+    <CollapsibleSection id="activity" title="Activity" icon={faListUl} defaultOpen={false}>
       <div className="max-h-64 space-y-1.5 overflow-y-auto pr-1 font-mono text-xs text-muted-foreground">
         {entries.length === 0 ? (
           <div>No activity yet.</div>
@@ -20,6 +22,6 @@ export function ActivityLog({ entries }: ActivityLogProps) {
           ))
         )}
       </div>
-    </div>
+    </CollapsibleSection>
   );
 }

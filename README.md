@@ -39,17 +39,30 @@ across restarts.
   description, and location.
 - **Favorites / saved nodes** — a quick-pick dropdown and an editable list in
   Settings, with live "keyed" coloring polled from the AllStarLink stats API so
-  you can see which of your favorites are active.
+  you can see which of your favorites are active. A **Save** button keeps a node
+  deliberately (connecting only adds to **Recent**, so the saved list stays yours).
+- **Recent nodes** — the last several nodes you connected to, one click to relink.
 - **MDC1200 PTT-ID** — clean-room encoder that sends your unit ID over the air
   on key-up/key-down (confirmed decoding on app_rpt), with a local Motorola-style
   talk-permit tone and adjustable level/preamble.
-- **DTMF commands** — a keypad and free-form sender for app_rpt `*` commands.
-- **Voice announcements** — spoken connect / disconnect / call-failed events.
-- **Push-to-talk** — on-screen hold-to-talk plus a global PTT hotkey
-  (hold or toggle).
+- **DTMF commands** — a keypad and free-form sender for app_rpt `*` commands,
+  plus **saved commands** you can name and re-send with one tap.
+- **Voice announcements** — optional spoken connect / disconnect / call-failed
+  events (off by default; enable under Settings → Audio).
+- **Push-to-talk** — on-screen hold-to-talk plus a global PTT hotkey that
+  supports **multi-key combos** (e.g. Ctrl+Shift+T), which register most
+  reliably for background/global PTT.
+- **Audio device selection** — pick your microphone and speaker in Settings → Audio.
 - **Network topology** — a live tree of the mesh you're linked into.
-- **Tabbed Settings** — Node, Saved nodes, Hotkey, MDC1200, and Appearance
-  (theme, accent color, text size); everything persists.
+- **Collapsible sections** — every panel minimizes (state remembered); the
+  Transmit panel keeps a compact PTT button even when collapsed.
+- **In-app menu** — a Font Awesome menu (directory, register, refresh,
+  disconnect all, settings, about).
+- **Tabbed Settings** — Node, Saved nodes, Hotkey, Audio, MDC1200, and
+  Appearance; everything persists, including the window size and Node/Web-TX mode.
+
+Node and Web Transceiver modes each unlock only once their credentials are set,
+so you can't accidentally pick a mode you can't use.
 
 ## Why Kerchunk exists
 
