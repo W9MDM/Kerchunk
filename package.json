@@ -55,6 +55,8 @@
     },
     "files": [
       "dist/**/*",
+      "!dist/**/*.test.*",
+      "!dist/**/*.map",
       "package.json",
       "LICENSE",
       "THIRD-PARTY-NOTICES.md"

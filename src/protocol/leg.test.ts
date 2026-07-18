@@ -74,7 +74,7 @@ describe('IaxLeg', () => {
   });
 
   it('completes the IAX2 call-token handshake before the call comes up', () => {
-    const caller = new IaxLeg({ localCall: 1, username: '43980', calledNumber: '66005' });
+    const caller = new IaxLeg({ localCall: 1, username: '12345', calledNumber: '66005' });
     const token = Buffer.from([0xde, 0xad, 0xbe, 0xef]);
     const sent: Buffer[] = [];
     caller.on('send', (frame) => sent.push(frame));
