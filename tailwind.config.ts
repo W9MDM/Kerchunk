@@ -29,6 +29,14 @@ export default {
         connected: 'hsl(var(--connected))',
         disconnected: 'hsl(var(--disconnected))',
       },
+      borderRadius: {
+        xl: '0.75rem',
+        '2xl': '1rem',
+      },
+      boxShadow: {
+        card: '0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 16px rgba(0, 0, 0, 0.06)',
+        ptt: '0 6px 20px rgba(255, 59, 48, 0.35)',
+      },
     },
   },
   plugins: [],

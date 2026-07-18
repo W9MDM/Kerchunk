@@ -10,6 +10,40 @@ import { StatusBadge } from './components/StatusBadge';
 // which would starve the renderer's main thread and drop outbound mic frames.
 const MemoActivityLog = memo(ActivityLog);
 
+/** Shared input styling — Apple-native rounded field with a focus ring. */
+const inputClass =
+  'rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none transition ' +
+  'placeholder:text-muted-foreground/70 focus:border-ring focus:ring-2 focus:ring-ring/30';
+
+function SignalGlyph() {
+  return (
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round">
+      <path d="M4.5 12.5a10.5 10.5 0 0 1 15 0" />
+      <path d="M8 15.5a6 6 0 0 1 8 0" />
+      <circle cx="12" cy="18.5" r="1.3" fill="white" stroke="none" />
+    </svg>
+  );
+}
+
+function MicGlyph() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="20"
+      height="20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="9" y="3" width="6" height="11" rx="3" />
+      <path d="M5 11a7 7 0 0 0 14 0" />
+      <path d="M12 18v3" />
+    </svg>
+  );
+}
+
 const TopologyBranch = memo(function TopologyBranch({ node, depth }: { node: TopologyTreeNode; depth: number }) {
   return (
     <div className={depth > 0 ? 'border-l border-border pl-4' : ''}>
@@ -45,7 +79,7 @@ function throttleLevel(setter: (value: number) => void): (value: number) => void
 }
 
 const themeOptions: Array<{ value: ThemeMode; label: string }> = [
-  { value: 'system', label: 'System' },
+  { value: 'system', label: 'Auto' },
   { value: 'light', label: 'Light' },
   { value: 'dark', label: 'Dark' },
 ];
@@ -234,265 +268,278 @@ export default function App() {
     log('Node info saved.');
   };
 
+  const linked = connections.length > 0;
+  const receiving = rxLevel > 2;
+
   return (
     <main className="min-h-screen bg-background text-foreground transition-colors duration-200">
-      <div className="mx-auto flex min-h-screen max-w-6xl flex-col gap-6 px-6 py-8 lg:px-8">
-        <section className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-            <div>
-              <p className="text-sm uppercase tracking-[0.25em] text-muted-foreground">Kerchunk</p>
-              <h1 className="mt-3 text-4xl font-semibold">Self-contained node</h1>
-              <p className="mt-3 max-w-2xl text-base text-muted-foreground">
-                A full AllStarLink-style node: link to other nodes by number, conference them together, and talk
-                with push-to-talk. Outbound linking only for now.
-              </p>
+      <div className="mx-auto flex min-h-screen max-w-3xl flex-col gap-5 px-5 py-7">
+        {/* Header */}
+        <header className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-[13px] bg-gradient-to-b from-[#5b62f0] to-[#8b5cf6] shadow-card">
+              <SignalGlyph />
             </div>
-            <div className="flex flex-wrap gap-2">
-              <StatusBadge
-                label={registered ? 'Registered' : 'Not registered'}
-                tone={registered ? 'connected' : 'warning'}
-              />
-              <StatusBadge
-                label={connections.length > 0 ? `${connections.length} linked` : 'No links'}
-                tone={connections.length > 0 ? 'connected' : 'disconnected'}
-              />
-              <StatusBadge label={protocolState} tone="warning" />
+            <div>
+              <h1 className="text-xl font-semibold leading-tight">Kerchunk</h1>
+              <p className="text-xs text-muted-foreground">Self-contained AllStar node</p>
             </div>
           </div>
-
-          <div className="mt-6 flex flex-wrap gap-3">
+          <div className="flex rounded-lg bg-muted p-0.5 text-xs">
             {themeOptions.map((option) => (
               <button
                 key={option.value}
                 onClick={() => void handleThemeChange(option.value)}
-                className={`rounded-full border px-4 py-2 text-sm transition ${
+                className={`rounded-md px-3 py-1 font-medium transition ${
                   theme.mode === option.value
-                    ? 'border-primary bg-primary text-primary-foreground'
-                    : 'border-border bg-transparent hover:bg-accent hover:text-accent-foreground'
+                    ? 'bg-card text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
                 {option.label}
               </button>
             ))}
           </div>
+        </header>
 
-          <div className="mt-6 grid gap-4 lg:grid-cols-[1fr_320px]">
-            <div className="grid content-start gap-3 rounded-xl border border-border bg-background/60 p-4">
-              <div className="flex gap-1 rounded-lg border border-border bg-background p-1">
-                {([
-                  { value: 'node', label: 'Node mode', hint: 'Use your ASL node number' },
-                  { value: 'guest', label: 'Web Transceiver', hint: 'No node number — callsign only' },
-                ] as const).map((tab) => (
-                  <button
-                    key={tab.value}
-                    onClick={() => setMode(tab.value)}
-                    title={tab.hint}
-                    className={`flex-1 rounded-md px-3 py-1.5 text-sm transition ${
-                      mode === tab.value
-                        ? 'bg-primary text-primary-foreground'
-                        : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
-
-              {mode === 'node' ? (
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <input
-                    value={myNode}
-                    onChange={(event) => setMyNode(event.target.value)}
-                    inputMode="numeric"
-                    className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm"
-                    placeholder="Your node number"
-                  />
-                  <input
-                    value={secret}
-                    onChange={(event) => setSecret(event.target.value)}
-                    type="password"
-                    className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm"
-                    placeholder="Your node secret"
-                  />
-                </div>
-              ) : (
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <input
-                    value={callsign}
-                    onChange={(event) => setCallsign(event.target.value)}
-                    className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm"
-                    placeholder="Your callsign (portal login)"
-                  />
-                  <input
-                    value={wtPassword}
-                    onChange={(event) => setWtPassword(event.target.value)}
-                    type="password"
-                    className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm"
-                    placeholder="allstarlink.org portal password"
-                  />
-                </div>
-              )}
-
-              <div className="grid gap-2 sm:grid-cols-2">
-                <input
-                  value={connectNode}
-                  onChange={(event) => setConnectNode(event.target.value)}
-                  inputMode="numeric"
-                  className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm"
-                  placeholder="Link to node number"
-                />
-                <input
-                  value={connectHost}
-                  onChange={(event) => setConnectHost(event.target.value)}
-                  disabled={mode === 'guest'}
-                  className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm disabled:opacity-40"
-                  placeholder={mode === 'guest' ? 'node number required' : '…or direct address'}
-                />
-              </div>
-            </div>
-
-            <div className="rounded-xl border border-border bg-background/60 p-4">
-              <div className="mb-3 flex items-center justify-between">
-                <span className="text-sm font-medium text-muted-foreground">Audio</span>
-                {rxLevel > 2 && (
-                  <span className="rounded-full bg-green-600/20 px-2 py-0.5 text-xs font-medium text-green-500">
-                    ◉ Receiving
-                  </span>
-                )}
-              </div>
-              <div className="space-y-3">
-                <Meter value={txLevel} label="Transmit" tone="tx" />
-                <Meter value={rxLevel} label="Receive" tone="rx" />
-              </div>
+        {/* Connection */}
+        <section className="rounded-2xl border border-border bg-card p-5 shadow-card">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold">Connection</h2>
+            <div className="flex flex-wrap gap-1.5">
+              <StatusBadge
+                label={registered ? 'Registered' : 'Not registered'}
+                tone={registered ? 'connected' : 'warning'}
+              />
+              <StatusBadge label={linked ? `${connections.length} linked` : 'No links'} tone={linked ? 'connected' : 'disconnected'} />
             </div>
           </div>
 
-          <div className="mt-3 flex flex-wrap items-center gap-3">
+          <div className="flex rounded-lg bg-muted p-0.5">
+            {([
+              { value: 'node', label: 'Node mode', hint: 'Use your ASL node number' },
+              { value: 'guest', label: 'Web Transceiver', hint: 'No node number — callsign only' },
+            ] as const).map((tab) => (
+              <button
+                key={tab.value}
+                onClick={() => setMode(tab.value)}
+                title={tab.hint}
+                className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition ${
+                  mode === tab.value
+                    ? 'bg-card text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-4 grid gap-2.5">
+            {mode === 'node' ? (
+              <div className="grid gap-2.5 sm:grid-cols-2">
+                <input
+                  value={myNode}
+                  onChange={(event) => setMyNode(event.target.value)}
+                  inputMode="numeric"
+                  className={inputClass}
+                  placeholder="Your node number"
+                />
+                <input
+                  value={secret}
+                  onChange={(event) => setSecret(event.target.value)}
+                  type="password"
+                  className={inputClass}
+                  placeholder="Your node secret"
+                />
+              </div>
+            ) : (
+              <div className="grid gap-2.5 sm:grid-cols-2">
+                <input
+                  value={callsign}
+                  onChange={(event) => setCallsign(event.target.value)}
+                  className={inputClass}
+                  placeholder="Your callsign (portal login)"
+                />
+                <input
+                  value={wtPassword}
+                  onChange={(event) => setWtPassword(event.target.value)}
+                  type="password"
+                  className={inputClass}
+                  placeholder="allstarlink.org portal password"
+                />
+              </div>
+            )}
+
+            <div className="grid gap-2.5 sm:grid-cols-2">
+              <input
+                value={connectNode}
+                onChange={(event) => setConnectNode(event.target.value)}
+                inputMode="numeric"
+                className={inputClass}
+                placeholder="Link to node number"
+              />
+              <input
+                value={connectHost}
+                onChange={(event) => setConnectHost(event.target.value)}
+                disabled={mode === 'guest'}
+                className={`${inputClass} disabled:opacity-40`}
+                placeholder={mode === 'guest' ? 'node number required' : '…or direct address'}
+              />
+            </div>
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center gap-2">
             <button
-              onClick={() => void handleSaveSettings()}
-              className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-accent hover:text-accent-foreground"
+              onClick={() => void handleConnect()}
+              className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm transition hover:opacity-90"
             >
-              Save node info
+              Link
             </button>
             {mode === 'node' && (
               <button
                 onClick={() => void handleRegister()}
-                className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+                className="rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium transition hover:bg-accent"
               >
                 Register
               </button>
             )}
             <button
-              onClick={() => void handleConnect()}
-              className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-accent hover:text-accent-foreground"
+              onClick={() => void handleSaveSettings()}
+              className="rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium transition hover:bg-accent"
             >
-              Link
+              Save
             </button>
-            <button
-              onClick={() => void handleDisconnectAll()}
-              className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-accent hover:text-accent-foreground"
-            >
-              Drop all
-            </button>
-            <button
-              onPointerDown={(event) => {
-                event.currentTarget.setPointerCapture(event.pointerId);
-                handleTransmit(true);
-              }}
-              onPointerUp={() => handleTransmit(false)}
-              onPointerCancel={() => handleTransmit(false)}
-              className={`ml-auto select-none rounded-lg px-6 py-2 text-sm font-medium transition ${
-                transmitting ? 'bg-red-600 text-white' : 'bg-primary text-primary-foreground hover:opacity-90'
-              }`}
-            >
-              {transmitting ? 'Transmitting…' : 'Hold to talk'}
-            </button>
+            {linked && (
+              <button
+                onClick={() => void handleDisconnectAll()}
+                className="ml-auto rounded-lg px-3 py-2 text-sm font-medium text-destructive transition hover:bg-destructive/10"
+              >
+                Drop all
+              </button>
+            )}
+          </div>
+        </section>
+
+        {/* Transmit */}
+        <section className="rounded-2xl border border-border bg-card p-5 shadow-card">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-semibold">Transmit</h2>
+            {receiving && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-rx/15 px-2.5 py-1 text-xs font-medium text-rx">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-rx" />
+                Receiving
+              </span>
+            )}
           </div>
 
-          <label className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+          <div className="grid gap-2.5">
+            <Meter value={txLevel} label="Transmit" tone="tx" />
+            <Meter value={rxLevel} label="Receive" tone="rx" />
+          </div>
+
+          <button
+            onPointerDown={(event) => {
+              event.currentTarget.setPointerCapture(event.pointerId);
+              handleTransmit(true);
+            }}
+            onPointerUp={() => handleTransmit(false)}
+            onPointerCancel={() => handleTransmit(false)}
+            className={`mt-4 flex w-full select-none items-center justify-center gap-2 rounded-xl py-4 text-base font-semibold transition ${
+              transmitting
+                ? 'bg-tx text-white shadow-ptt'
+                : 'bg-accent text-foreground hover:bg-accent/70'
+            }`}
+          >
+            <MicGlyph />
+            {transmitting ? 'Transmitting…' : 'Hold to Talk'}
+          </button>
+        </section>
+
+        {/* Connected nodes */}
+        <section className="rounded-2xl border border-border bg-card p-5 shadow-card">
+          <div className="mb-3 text-sm font-semibold">Connected nodes</div>
+          {connections.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No links yet. Enter a node number above and press Link.</p>
+          ) : (
+            <ul className="space-y-2">
+              {connections.map((connection) => {
+                const subtitle =
+                  [connection.description, connection.location].filter(Boolean).join(' — ') ||
+                  `${connection.host}:${connection.port}`;
+                const freq = connection.frequency
+                  ? `${connection.frequency}${connection.tone ? ` / ${connection.tone}` : ''}`
+                  : null;
+                return (
+                  <li
+                    key={connection.localCall}
+                    className="flex items-center justify-between rounded-xl border border-border bg-background px-4 py-3"
+                  >
+                    <div>
+                      <div className="text-sm font-medium">
+                        {connection.label}
+                        {connection.callsign ? ` · ${connection.callsign}` : ''}
+                      </div>
+                      <div className="text-xs text-muted-foreground">{subtitle}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {connection.state}
+                        {freq ? ` · ${freq}` : ''}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => void handleDisconnect(connection.label)}
+                      className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium transition hover:bg-accent"
+                    >
+                      Disconnect
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
+
+        {/* Network */}
+        {topology && topology.root.children.length > 0 && (
+          <section className="rounded-2xl border border-border bg-card p-5 shadow-card">
+            <div className="mb-3 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-semibold">Network</span>
+                {receiving && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-rx/15 px-2.5 py-1 text-xs font-medium text-rx">
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-rx" />
+                    Receiving
+                  </span>
+                )}
+              </div>
+              <button
+                onClick={() => void refreshTopology()}
+                className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium transition hover:bg-accent"
+              >
+                Refresh
+              </button>
+            </div>
+            <TopologyBranch node={topology.root} depth={0} />
+            <p className="mt-4 text-xs text-muted-foreground">
+              🔴 = recently keyed per AllStarLink stats (~30s lag; brief keyups may not show). “Receiving”
+              reflects live incoming audio. ⟲ = already listed above.
+            </p>
+          </section>
+        )}
+
+        <MemoActivityLog entries={activity} />
+
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <label className="flex items-center gap-2">
             <input
               type="checkbox"
               checked={trace}
               onChange={(event) => void handleTraceToggle(event.target.checked)}
             />
-            Show frame-level trace (debugging)
+            Frame-level trace
           </label>
-          <p className="mt-2 text-xs text-muted-foreground">
-            Node numbers resolve via AllStarLink DNS. Accepting inbound links would require forwarding UDP 4569.
-          </p>
-        </section>
-
-        <section className="flex flex-col gap-6">
-          <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-            <div className="mb-4 text-lg font-semibold">Connected nodes</div>
-            {connections.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No links. Enter a node number and press Link.</p>
-            ) : (
-              <ul className="space-y-2">
-                {connections.map((connection) => {
-                  const subtitle =
-                    [connection.description, connection.location].filter(Boolean).join(' — ') ||
-                    `${connection.host}:${connection.port}`;
-                  const freq = connection.frequency
-                    ? `${connection.frequency}${connection.tone ? ` / ${connection.tone}` : ''}`
-                    : null;
-                  return (
-                    <li
-                      key={connection.localCall}
-                      className="flex items-center justify-between rounded-lg border border-border bg-background/60 px-4 py-3"
-                    >
-                      <div>
-                        <div className="text-sm font-medium">
-                          {connection.label}
-                          {connection.callsign ? ` · ${connection.callsign}` : ''}
-                        </div>
-                        <div className="text-xs text-muted-foreground">{subtitle}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {connection.state}
-                          {freq ? ` · ${freq}` : ''}
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => void handleDisconnect(connection.label)}
-                        className="rounded-lg border border-border px-3 py-1.5 text-xs hover:bg-accent hover:text-accent-foreground"
-                      >
-                        Disconnect
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </div>
-
-          {topology && topology.root.children.length > 0 && (
-            <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-              <div className="mb-4 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <span className="text-lg font-semibold">Network</span>
-                  {rxLevel > 2 && (
-                    <span className="rounded-full bg-green-600/20 px-2 py-0.5 text-xs font-medium text-green-500">
-                      ◉ Receiving
-                    </span>
-                  )}
-                </div>
-                <button
-                  onClick={() => void refreshTopology()}
-                  className="rounded-lg border border-border px-3 py-1.5 text-xs hover:bg-accent hover:text-accent-foreground"
-                >
-                  Refresh
-                </button>
-              </div>
-              <TopologyBranch node={topology.root} depth={0} />
-              <p className="mt-4 text-xs text-muted-foreground">
-                🔴 = recently keyed per AllStarLink stats (~30s lag; brief keyups may not show). “◉ Receiving”
-                above reflects live incoming audio. ⟲ = already listed above.
-              </p>
-            </div>
-          )}
-
-          <MemoActivityLog entries={activity} />
-        </section>
+          <span className="rounded-full border border-border bg-card px-2.5 py-1">{protocolState}</span>
+        </div>
 
         <footer className="pb-2 text-center text-xs text-muted-foreground">
           Kerchunk — Copyright © 2026 W9MDM · MIT License · Not affiliated with AllStarLink
