@@ -118,8 +118,11 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [uiScale, setUiScale] = useState(0.75);
   const [accent, setAccent] = useState('#007aff');
+  const [pttKey, setPttKey] = useState('');
+  const [pttMode, setPttMode] = useState<'hold' | 'toggle'>('hold');
   const audioEngineRef = useRef<AudioEngine | null>(null);
   const didAutoLink = useRef(false);
+  const transmittingRef = useRef(false);
 
   const log = (message: string) => setActivity((current) => [message, ...current].slice(0, 60));
 
@@ -145,6 +148,8 @@ export default function App() {
     savedNodes,
     uiScale,
     accent,
+    pttKey,
+    pttMode,
     ...overrides,
   });
 
@@ -177,6 +182,8 @@ export default function App() {
         setAccent(settings.accent);
         applyAccent(settings.accent);
       }
+      if (settings.pttKey !== undefined) setPttKey(settings.pttKey);
+      if (settings.pttMode) setPttMode(settings.pttMode);
       if (settings.myNode) void window.electronAPI.getNodeInfo(settings.myNode).then(setSelfInfo);
     });
     void window.electronAPI.getThemeState().then(setTheme);
@@ -391,6 +398,7 @@ export default function App() {
 
   const handleTransmit = (on: boolean) => {
     audioEngineRef.current?.setTransmitting(on);
+    transmittingRef.current = on;
     setTransmitting(on);
     if (on) {
       window.electronAPI.txStart(); // re-establish the stream on each key-up
@@ -398,6 +406,40 @@ export default function App() {
       window.electronAPI.txStop(); // RADIO_UNKEY on guest (web transceiver) links
     }
   };
+
+  const handlePttKeyChange = (code: string) => {
+    setPttKey(code);
+    void window.electronAPI.saveSettings(buildSettings({ pttKey: code }));
+  };
+  const handlePttModeChange = (mode: 'hold' | 'toggle') => {
+    setPttMode(mode);
+    void window.electronAPI.saveSettings(buildSettings({ pttMode: mode }));
+  };
+
+  // PTT hotkey: hold-to-talk or press-to-toggle, ignored while typing in a field.
+  useEffect(() => {
+    if (!pttKey) return;
+    const isTyping = () => {
+      const el = document.activeElement;
+      return !!el && ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.code !== pttKey || event.repeat || isTyping()) return;
+      event.preventDefault();
+      if (pttMode === 'toggle') handleTransmit(!transmittingRef.current);
+      else if (!transmittingRef.current) handleTransmit(true);
+    };
+    const onKeyUp = (event: KeyboardEvent) => {
+      if (event.code !== pttKey || pttMode !== 'hold') return;
+      if (transmittingRef.current) handleTransmit(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('keyup', onKeyUp);
+    };
+  }, [pttKey, pttMode]);
 
   const handleTraceToggle = async (enabled: boolean) => {
     setTraceEnabled(enabled);
@@ -668,6 +710,10 @@ export default function App() {
         onScaleChange={handleScaleChange}
         accent={accent}
         onAccentChange={handleAccentChange}
+        pttKey={pttKey}
+        pttMode={pttMode}
+        onPttKeyChange={handlePttKeyChange}
+        onPttModeChange={handlePttModeChange}
         registered={registered}
         onRegister={() => void handleRegister()}
         onSave={() => void handleSaveSettings()}

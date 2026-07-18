@@ -1,5 +1,20 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import type { ThemeMode, ThemeState } from '../../../shared/theme';
+
+/** Friendly label for a KeyboardEvent.code. */
+function keyLabel(code: string): string {
+  if (!code) return 'None';
+  if (code === 'Space') return 'Space';
+  if (code.startsWith('Key')) return code.slice(3);
+  if (code.startsWith('Digit')) return code.slice(5);
+  if (code.startsWith('Numpad')) return `Num ${code.slice(6)}`;
+  if (code.startsWith('Arrow')) return code.slice(5);
+  return code
+    .replace('Left', ' L')
+    .replace('Right', ' R')
+    .replace(/([A-Z])/g, ' $1')
+    .trim();
+}
 
 const inputClass =
   'w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none transition ' +
@@ -39,6 +54,10 @@ interface SettingsModalProps {
   onScaleChange: (factor: number) => void;
   accent: string;
   onAccentChange: (hex: string) => void;
+  pttKey: string;
+  pttMode: 'hold' | 'toggle';
+  onPttKeyChange: (code: string) => void;
+  onPttModeChange: (mode: 'hold' | 'toggle') => void;
   registered: boolean;
   onRegister: () => void;
   onSave: () => void;
@@ -48,6 +67,7 @@ interface SettingsModalProps {
 
 export function SettingsModal(props: SettingsModalProps) {
   const { open, onClose } = props;
+  const [capturing, setCapturing] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -57,6 +77,20 @@ export function SettingsModal(props: SettingsModalProps) {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
+
+  // While capturing, the next key press becomes the PTT hotkey.
+  useEffect(() => {
+    if (!capturing) return;
+    const onKey = (e: KeyboardEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.key !== 'Escape') props.onPttKeyChange(e.code);
+      setCapturing(false);
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [capturing]);
 
   if (!open) return null;
 
@@ -215,6 +249,51 @@ export function SettingsModal(props: SettingsModalProps) {
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* PTT hotkey */}
+          <div>
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">PTT hotkey</h3>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCapturing((c) => !c)}
+                className={`min-w-[7rem] rounded-lg border px-3 py-2 text-sm font-medium transition ${
+                  capturing
+                    ? 'border-primary bg-primary/10 text-primary'
+                    : 'border-border bg-background hover:bg-accent'
+                }`}
+              >
+                {capturing ? 'Press a key…' : keyLabel(props.pttKey)}
+              </button>
+              {props.pttKey && !capturing && (
+                <button
+                  onClick={() => props.onPttKeyChange('')}
+                  className="rounded-lg px-2 py-2 text-xs text-muted-foreground transition hover:text-destructive"
+                >
+                  Clear
+                </button>
+              )}
+              <div className="ml-auto flex rounded-lg bg-muted p-0.5 text-sm">
+                {(['hold', 'toggle'] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    onClick={() => props.onPttModeChange(mode)}
+                    className={`rounded-md px-3 py-1.5 font-medium capitalize transition ${
+                      props.pttMode === mode
+                        ? 'bg-card text-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {mode}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              {props.pttMode === 'hold'
+                ? 'Hold the key to transmit; release to stop. Works when the window is focused.'
+                : 'Press the key to start transmitting; press again to stop.'}
+            </p>
           </div>
 
           <label className="flex items-center gap-2 text-sm text-muted-foreground">

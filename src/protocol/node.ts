@@ -440,8 +440,36 @@ export class KerchunkNode extends EventEmitter<NodeEventMap> {
     return result;
   }
 
-  /** Link to another node by number, resolving it to an address via DNS. */
+  /** Every node currently reachable through our links (direct + downstream). */
+  private async reachableNodes(): Promise<Set<string>> {
+    const set = new Set<string>();
+    for (const c of this.byLocalCall.values()) {
+      if (/^[0-9]+$/.test(c.label)) set.add(c.label);
+    }
+    if (this.byLocalCall.size === 0) return set; // nothing linked → no loop possible
+    const topo = await this.getTopology();
+    const walk = (node: TopologyTreeNode) => {
+      for (const child of node.children) {
+        if (!child.isSelf) set.add(child.node);
+        walk(child);
+      }
+    };
+    walk(topo.root);
+    return set;
+  }
+
+  /** True if a node is already linked or reachable downstream (loop risk). */
+  async isNodeInNetwork(nodeNumber: string): Promise<boolean> {
+    return (await this.reachableNodes()).has(nodeNumber);
+  }
+
+  /** Link to another node by number, resolving it to an address via DNS.
+   * Refuses if the node is already reachable in our network (loop prevention). */
   async connectToNode(nodeNumber: string, options?: { monitor?: boolean }): Promise<void> {
+    if (await this.isNodeInNetwork(nodeNumber)) {
+      this.emit('state', `${nodeNumber} is already in your network — not linking (loop prevented)`);
+      return;
+    }
     this.emit('state', `resolving node ${nodeNumber}`);
     const resolved = await this.resolveNodeNumber(nodeNumber);
     this.emit('state', `resolved ${nodeNumber} → ${resolved.host}:${resolved.port}`);
