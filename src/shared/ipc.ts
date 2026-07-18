@@ -72,6 +72,8 @@ export interface NodeSettings {
   savedNodes?: SavedNode[];
   /** UI zoom factor (text size), e.g. 0.75. Defaults to 0.75. */
   uiScale?: number;
+  /** Accent color as #rrggbb. Defaults to #007aff. */
+  accent?: string;
 }
 
 /** AllStarLink directory metadata for a node (identity header, list rows). */
