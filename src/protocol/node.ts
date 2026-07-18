@@ -643,8 +643,10 @@ export class KerchunkNode extends EventEmitter<NodeEventMap> {
     this.mdc = config;
   }
 
-  /** Queue an MDC1200 burst for real-time playout to all links (mixTick drains it). */
-  private enqueueMdcBurst(): void {
+  /** Queue an MDC1200 burst for real-time playout to all links (mixTick drains it).
+   * A key-down (end) ID gets a short silent tail as hang time; a key-up (start)
+   * ID gets none so the operator's voice follows immediately without a gap. */
+  private enqueueMdcBurst(isEnd: boolean): void {
     if (!this.mdc.enabled || !this.mdc.unitId || !this.mdc.encode) {
       return;
     }
@@ -654,12 +656,17 @@ export class KerchunkNode extends EventEmitter<NodeEventMap> {
       frame.set(burst.subarray(i, i + this.frameSize));
       this.mdcTxFrames.push(frame);
     }
+    if (isEnd) {
+      // ~150 ms of hang time so the burst passes fully before we unkey.
+      const tailFrames = Math.round((0.15 * 8000) / this.frameSize);
+      for (let i = 0; i < tailFrames; i += 1) this.mdcTxFrames.push(new Int16Array(this.frameSize));
+    }
     this.emit('state', `MDC1200 PTT ID ${this.mdc.unitId.toString(16).toUpperCase().padStart(4, '0')}`);
   }
 
   notifyTransmitStart(): void {
     if (this.mdc.timing === 'start' || this.mdc.timing === 'both') {
-      this.enqueueMdcBurst();
+      this.enqueueMdcBurst(false);
     }
     for (const connection of this.byLocalCall.values()) {
       if (connection.up && !connection.monitor) {
@@ -673,7 +680,7 @@ export class KerchunkNode extends EventEmitter<NodeEventMap> {
    * implicitly when voice frames stop). */
   notifyTransmitStop(): void {
     if (this.mdc.timing === 'end' || this.mdc.timing === 'both') {
-      this.enqueueMdcBurst();
+      this.enqueueMdcBurst(true);
     }
     for (const connection of this.byLocalCall.values()) {
       if (connection.up && !connection.monitor) {
@@ -890,6 +897,11 @@ export class KerchunkNode extends EventEmitter<NodeEventMap> {
           this.txVoiceCount += 1;
         }
         c.rxQueue.shift(); // keep peer RX from backing up during the burst
+      }
+      // Burst just finished: re-key so the following voice re-establishes cleanly
+      // (prevents the far end dropping between the ID and the operator's audio).
+      if (this.mdcTxFrames.length === 0) {
+        for (const c of upLegs) if (!c.monitor) c.leg.markKeyStart();
       }
       return;
     }
