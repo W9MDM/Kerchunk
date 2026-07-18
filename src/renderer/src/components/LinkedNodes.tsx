@@ -9,6 +9,7 @@ interface LinkedNodesProps {
   onSort: (mode: SortMode) => void;
   onUnlink: (label: string) => void;
   onUnlinkAll: () => void;
+  onRefresh: () => void;
 }
 
 function PinIcon() {
@@ -35,6 +36,7 @@ export const LinkedNodes = memo(function LinkedNodes({
   onSort,
   onUnlink,
   onUnlinkAll,
+  onRefresh,
 }: LinkedNodesProps) {
   const sorted = [...connections].sort((a, b) => {
     if (sortMode === 'number') {
@@ -121,16 +123,22 @@ export const LinkedNodes = memo(function LinkedNodes({
         </ul>
       )}
 
-      {connections.length > 0 && (
-        <div className="mt-4">
-          <button
-            onClick={onUnlinkAll}
-            className="rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-medium transition hover:bg-accent"
-          >
-            Unlink All
-          </button>
-        </div>
-      )}
+      <div className="mt-4 flex items-center gap-2">
+        <button
+          onClick={onUnlinkAll}
+          disabled={connections.length === 0}
+          className="rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-medium transition hover:bg-accent disabled:opacity-40"
+        >
+          Unlink All
+        </button>
+        <button
+          onClick={onRefresh}
+          className="ml-auto rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-medium transition hover:bg-accent"
+          title="Refresh network"
+        >
+          ↻ Refresh
+        </button>
+      </div>
     </section>
   );
 });
