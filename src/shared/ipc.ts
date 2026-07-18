@@ -74,6 +74,10 @@ export interface NodeSettings {
   uiScale?: number;
   /** Accent color as #rrggbb. Defaults to #007aff. */
   accent?: string;
+  /** PTT hotkey as a KeyboardEvent.code (e.g. "Space", "KeyT"). Empty = none. */
+  pttKey?: string;
+  /** How the PTT hotkey behaves: hold to talk, or press to toggle. */
+  pttMode?: 'hold' | 'toggle';
 }
 
 /** AllStarLink directory metadata for a node (identity header, list rows). */
