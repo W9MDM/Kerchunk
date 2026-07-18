@@ -50,9 +50,17 @@ const g711Codec: AudioCodec = {
   encode: (samples) => encodeG711Chunk(samples),
 };
 
+interface WindowBounds {
+  width: number;
+  height: number;
+  x?: number;
+  y?: number;
+}
+
 interface Preferences {
   themeMode?: ThemeMode;
   nodeSettings?: NodeSettings;
+  windowBounds?: WindowBounds;
 }
 
 function readPreferences(): Preferences {
@@ -85,6 +93,21 @@ function writeNodeSettings(settings: NodeSettings) {
   writePreferences({ ...readPreferences(), nodeSettings: settings });
 }
 
+function readWindowBounds(): WindowBounds | undefined {
+  return readPreferences().windowBounds;
+}
+
+let saveBoundsTimer: ReturnType<typeof setTimeout> | undefined;
+/** Persist the current window size/position (debounced), so it reopens as left. */
+function saveWindowBounds() {
+  if (!mainWindow || mainWindow.isMinimized() || mainWindow.isMaximized()) return;
+  const { width, height, x, y } = mainWindow.getBounds();
+  clearTimeout(saveBoundsTimer);
+  saveBoundsTimer = setTimeout(() => {
+    writePreferences({ ...readPreferences(), windowBounds: { width, height, x, y } });
+  }, 400);
+}
+
 /** Show the window on-screen and bring it to the front. Recenters if it somehow
  * landed outside every connected display (the "only in the taskbar" case). */
 function revealWindow() {
@@ -102,14 +125,17 @@ function revealWindow() {
 }
 
 function createWindow() {
+  const saved = readWindowBounds();
   mainWindow = new BrowserWindow({
     // Sized to the app's content column at 75% zoom (see setZoomFactor below),
-    // Transceive-style compact window.
-    width: 560,
-    height: 760,
-    minWidth: 340,
-    minHeight: 460,
-    center: true,
+    // Transceive-style compact window. Reopens at the operator's last size/spot.
+    width: saved?.width ?? 560,
+    height: saved?.height ?? 760,
+    x: saved?.x,
+    y: saved?.y,
+    minWidth: 360,
+    minHeight: 480,
+    center: !saved,
     title: 'Kerchunk',
     show: false,
     autoHideMenuBar: true,
@@ -156,6 +182,17 @@ function createWindow() {
   mainWindow.on('focus', () => globalShortcut.unregisterAll());
   mainWindow.on('blur', () => registerGlobalHotkey());
 
+  // Remember the window size/position across restarts.
+  mainWindow.on('resize', saveWindowBounds);
+  mainWindow.on('move', saveWindowBounds);
+  mainWindow.on('close', () => {
+    clearTimeout(saveBoundsTimer);
+    if (mainWindow && !mainWindow.isMinimized() && !mainWindow.isMaximized()) {
+      const { width, height, x, y } = mainWindow.getBounds();
+      writePreferences({ ...readPreferences(), windowBounds: { width, height, x, y } });
+    }
+  });
+
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
@@ -173,11 +210,20 @@ function broadcastTheme(mode: ThemeMode = readThemePreference()) {
 // ---- Global PTT hotkey ------------------------------------------------------
 // globalShortcut fires only when the window is UNFOCUSED (while focused, the
 // renderer's own keydown/keyup handles hold + toggle). It can't detect key
-// release, so an unfocused press toggles transmit.
+// release, so an unfocused press toggles transmit. A multi-key combo (e.g.
+// Ctrl+Shift+T) registers far more reliably as a global accelerator than a bare
+// key, which is why background PTT works best with a modifier.
 let pttAccelerator: string | null = null;
 
-/** Map a KeyboardEvent.code to an Electron accelerator, or null if unmappable. */
-function codeToAccelerator(code: string): string | null {
+const MODIFIER_ACCEL: Record<string, string> = {
+  Control: 'Control',
+  Alt: 'Alt',
+  Shift: 'Shift',
+  Meta: 'Super',
+};
+
+/** Map a single KeyboardEvent.code (the combo's main key) to an accelerator. */
+function keyCodeToAccelerator(code: string): string | null {
   if (!code) return null;
   if (code === 'Space') return 'Space';
   if (code.startsWith('Key')) return code.slice(3);
@@ -211,6 +257,20 @@ function codeToAccelerator(code: string): string | null {
   return named[code] ?? null;
 }
 
+/**
+ * Map a '+'-joined combo (modifiers first, main key last — e.g.
+ * "Control+Shift+KeyT") to an Electron accelerator, or null if unmappable.
+ */
+function comboToAccelerator(combo: string): string | null {
+  const parts = (combo ?? '').split('+').filter(Boolean);
+  if (parts.length === 0) return null;
+  const main = parts[parts.length - 1];
+  const mods = parts.slice(0, -1).map((m) => MODIFIER_ACCEL[m]).filter(Boolean);
+  const key = keyCodeToAccelerator(main);
+  if (!key) return null;
+  return [...mods, key].join('+');
+}
+
 function registerGlobalHotkey() {
   globalShortcut.unregisterAll();
   if (!pttAccelerator || mainWindow?.isFocused()) return;
@@ -227,6 +287,7 @@ function sendProtocolState(state: string) {
   const payload: ProtocolStatePayload = { state };
   mainWindow?.webContents.send(IPC_CHANNELS.PROTOCOL_STATE, payload);
 }
+
 
 function ensureNode(identity?: { username?: string; secret?: string }) {
   if (!protocolNode) {
@@ -300,7 +361,7 @@ function applyMdcConfig() {
 }
 
 app.whenReady().then(() => {
-  // No File/Edit/View… menu — Kerchunk is a single-window app.
+  // The app uses an in-app icon menu (renderer); no native menu bar.
   Menu.setApplicationMenu(null);
   createWindow();
 
@@ -443,7 +504,7 @@ app.whenReady().then(() => {
   });
 
   ipcMain.on(IPC_CHANNELS.PROTOCOL_SET_HOTKEY, (_event, code: string) => {
-    pttAccelerator = codeToAccelerator(code);
+    pttAccelerator = comboToAccelerator(code);
     registerGlobalHotkey();
   });
 

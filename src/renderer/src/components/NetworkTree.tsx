@@ -1,6 +1,7 @@
 import { memo } from 'react';
 import type { Topology, TopologyTreeNode } from '../../../shared/ipc';
-import { FontAwesomeIcon, faRotate } from '../icons';
+import { CollapsibleSection } from './CollapsibleSection';
+import { FontAwesomeIcon, faRotate, faGlobe } from '../icons';
 
 interface NetworkTreeProps {
   topology: Topology | null;
@@ -45,27 +46,30 @@ export const NetworkTree = memo(function NetworkTree({ topology, onRefresh }: Ne
   if (!topology || topology.root.children.length === 0) return null;
   const total = countNodes(topology.root);
   return (
-    <section className="rounded-2xl border border-border bg-card p-5 shadow-card">
-      <div className="mb-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <h2 className="text-sm font-semibold">Network</h2>
+    <CollapsibleSection
+      id="network"
+      title="Network"
+      icon={faGlobe}
+      right={
+        <>
           <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium tabular-nums text-muted-foreground">
             {total}
           </span>
-        </div>
-        <button
-          onClick={onRefresh}
-          className="rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-medium transition hover:bg-accent"
-        >
-          <FontAwesomeIcon icon={faRotate} /> Refresh
-        </button>
-      </div>
+          <button
+            onClick={onRefresh}
+            className="rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-medium transition hover:bg-accent"
+          >
+            <FontAwesomeIcon icon={faRotate} /> Refresh
+          </button>
+        </>
+      }
+    >
       <div className="max-h-[28rem] overflow-y-auto pr-1">
         <Branch node={topology.root} depth={0} />
       </div>
       <p className="mt-3 text-xs text-muted-foreground">
         Live map of the mesh you're linked into. 🟢 = recently keyed per AllStarLink stats (~30s lag). ⟲ = shown above.
       </p>
-    </section>
+    </CollapsibleSection>
   );
 });

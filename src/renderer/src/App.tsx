@@ -1,8 +1,9 @@
 import { memo, useEffect, useRef, useState } from 'react';
 import type { ThemeMode, ThemeState } from '../../shared/theme';
-import type { NodeInfoDto, NodeSettings, ProtocolConnectionInfo, SavedNode, Topology } from '../../shared/ipc';
+import type { DtmfCommand, NodeInfoDto, NodeSettings, ProtocolConnectionInfo, SavedNode, Topology } from '../../shared/ipc';
 import { AudioEngine } from './audio/engine';
 import { ActivityLog } from './components/ActivityLog';
+import { CollapsibleSection } from './components/CollapsibleSection';
 import { LinkedNodes, type SortMode } from './components/LinkedNodes';
 import { Meter } from './components/Meter';
 import { NetworkTree } from './components/NetworkTree';
@@ -10,18 +11,37 @@ import { NodeIdentity } from './components/NodeIdentity';
 import { SettingsModal } from './components/SettingsModal';
 import { NodeDirectory } from './components/NodeDirectory';
 import { DtmfPad } from './components/DtmfPad';
+import { AppMenu } from './components/AppMenu';
 import kerchunkIcon from './assets/kerchunk-icon.png';
 import { decodeG711Chunk } from '../../shared/audio';
 import MdcDecoderWorker from './audio/mdcDecoder.worker?worker';
-import { FontAwesomeIcon, faGear, faTowerBroadcast, faMicrophone } from './icons';
+import { FontAwesomeIcon, faTowerBroadcast, faMicrophone, faMagnifyingGlass, faFloppyDisk } from './icons';
+
+const MAX_RECENTS = 10;
+
+/** Match a live keydown against a stored '+'-combo (modifiers first, key last). */
+function comboMatches(event: KeyboardEvent, combo: string): boolean {
+  const parts = combo.split('+').filter(Boolean);
+  if (parts.length === 0) return false;
+  const key = parts[parts.length - 1];
+  const mods = new Set(parts.slice(0, -1));
+  return (
+    event.code === key &&
+    event.ctrlKey === mods.has('Control') &&
+    event.altKey === mods.has('Alt') &&
+    event.shiftKey === mods.has('Shift') &&
+    event.metaKey === mods.has('Meta')
+  );
+}
 
 // Memoized so audio-level re-renders (~12/s) don't re-render these subtrees,
 // which would starve the renderer's main thread and drop outbound mic frames.
 const MemoActivityLog = memo(ActivityLog);
 
-/** Shared input styling — Apple-native rounded field with a focus ring. */
+/** Shared input styling — Apple-native rounded field with a focus ring.
+ * w-full + min-w-0 lets fields shrink inside grid/flex cells (no overflow). */
 const inputClass =
-  'rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none transition ' +
+  'w-full min-w-0 rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none transition ' +
   'placeholder:text-muted-foreground/70 focus:border-ring focus:ring-2 focus:ring-ring/30';
 
 /** Rate-limit level→state updates (~12/s); pass 0 through instantly so meters settle. */
@@ -97,7 +117,6 @@ export default function App() {
   const [callsign, setCallsign] = useState('');
   const [operatorName, setOperatorName] = useState('');
   const [wtPassword, setWtPassword] = useState('');
-  const [permanent, setPermanent] = useState(false);
   const [savedNodes, setSavedNodes] = useState<SavedNode[]>([]);
   const [selfInfo, setSelfInfo] = useState<NodeInfoDto | null>(null);
   const [connections, setConnections] = useState<ProtocolConnectionInfo[]>([]);
@@ -122,6 +141,12 @@ export default function App() {
   const [mdcLevel, setMdcLevel] = useState(52);
   const [mdcPreamble, setMdcPreamble] = useState(24);
   const [heardMdc, setHeardMdc] = useState<string | null>(null);
+  const [ttsEnabled, setTtsEnabled] = useState(false);
+  const [audioInput, setAudioInput] = useState('');
+  const [audioOutput, setAudioOutput] = useState('');
+  const [recentNodes, setRecentNodes] = useState<SavedNode[]>([]);
+  const [dtmfCommands, setDtmfCommands] = useState<DtmfCommand[]>([]);
+  const ttsEnabledRef = useRef(false);
   const audioEngineRef = useRef<AudioEngine | null>(null);
   const didAutoLink = useRef(false);
   const transmittingRef = useRef(false);
@@ -164,6 +189,11 @@ export default function App() {
     mdcLevel,
     mdcPreamble,
     mode,
+    ttsEnabled,
+    audioInput,
+    audioOutput,
+    recentNodes,
+    dtmfCommands,
     ...overrides,
   });
 
@@ -209,6 +239,17 @@ export default function App() {
       if (typeof settings.mdcLevel === 'number') setMdcLevel(settings.mdcLevel);
       if (typeof settings.mdcPreamble === 'number') setMdcPreamble(settings.mdcPreamble);
       if (settings.mode) setMode(settings.mode);
+      if (typeof settings.ttsEnabled === 'boolean') {
+        setTtsEnabled(settings.ttsEnabled);
+        ttsEnabledRef.current = settings.ttsEnabled;
+      }
+      if (settings.audioInput) setAudioInput(settings.audioInput);
+      if (settings.audioOutput) setAudioOutput(settings.audioOutput);
+      if (settings.audioInput || settings.audioOutput) {
+        void getAudioEngine().setDevices(settings.audioInput ?? '', settings.audioOutput ?? '');
+      }
+      if (settings.recentNodes) setRecentNodes(settings.recentNodes);
+      if (settings.dtmfCommands) setDtmfCommands(settings.dtmfCommands);
       if (settings.myNode) void window.electronAPI.getNodeInfo(settings.myNode).then(setSelfInfo);
     });
     void window.electronAPI.getThemeState().then(setTheme);
@@ -373,12 +414,17 @@ export default function App() {
     const upNow = new Set(connections.filter((c) => c.up).map((c) => c.label));
     const prevAll = prevConnRef.current;
     const prevUp = prevUpRef.current;
+    // Bookkeeping runs regardless; only the spoken cue is gated on the TTS setting
+    // (so turning TTS on later doesn't replay a backlog of past events).
+    const say = (text: string) => {
+      if (ttsEnabledRef.current) speak(text);
+    };
     if (prevAll && prevUp) {
-      for (const label of upNow) if (!prevUp.has(label)) speak(`Connected to ${spellNode(label)}`);
+      for (const label of upNow) if (!prevUp.has(label)) say(`Connected to ${spellNode(label)}`);
       for (const label of prevAll) {
         if (allNow.has(label)) continue;
-        if (prevUp.has(label)) speak(`${spellNode(label)} disconnected`);
-        else speak(`Call to ${spellNode(label)} failed`);
+        if (prevUp.has(label)) say(`${spellNode(label)} disconnected`);
+        else say(`Call to ${spellNode(label)} failed`);
       }
     }
     prevConnRef.current = allNow;
@@ -436,6 +482,76 @@ export default function App() {
       void window.electronAPI.saveSettings(buildSettings({ savedNodes: next }));
       return next;
     });
+  };
+
+  /** Record a node in the recents list (most-recent first, capped). Connecting
+   * adds here — NOT to saved — so the saved list stays curated by the operator. */
+  const addRecent = (number: string, extra?: Partial<SavedNode>) => {
+    if (!number) return;
+    setRecentNodes((prev) => {
+      const existing = prev.find((n) => n.number === number);
+      const merged: SavedNode = { number, ...existing, ...extra };
+      const next = [merged, ...prev.filter((n) => n.number !== number)].slice(0, MAX_RECENTS);
+      void window.electronAPI.saveSettings(buildSettings({ recentNodes: next }));
+      return next;
+    });
+    if (/^\d+$/.test(number) && !extra?.callsign) {
+      void window.electronAPI.getNodeInfo(number).then((info) => {
+        if (!info) return;
+        setRecentNodes((prev) => {
+          const next = prev.map((n) =>
+            n.number === number
+              ? { ...n, callsign: info.callsign ?? n.callsign, location: info.location ?? n.location, description: info.description ?? n.description }
+              : n,
+          );
+          void window.electronAPI.saveSettings(buildSettings({ recentNodes: next }));
+          return next;
+        });
+      });
+    }
+  };
+
+  /** Save button (Link controls): explicitly add the typed node to saved nodes. */
+  const saveCurrentNode = () => {
+    const number = connectNode.trim();
+    if (!number) {
+      log('Enter a node number to save.');
+      return;
+    }
+    const known = recentNodes.find((n) => n.number === number);
+    rememberNode(number, known ? { callsign: known.callsign, location: known.location, description: known.description } : undefined);
+    log(`Saved node ${number}.`);
+  };
+
+  const addDtmfCommand = (command: DtmfCommand) => {
+    setDtmfCommands((prev) => {
+      const next = [...prev.filter((c) => c.label !== command.label), command];
+      void window.electronAPI.saveSettings(buildSettings({ dtmfCommands: next }));
+      return next;
+    });
+  };
+  const removeDtmfCommand = (label: string) => {
+    setDtmfCommands((prev) => {
+      const next = prev.filter((c) => c.label !== label);
+      void window.electronAPI.saveSettings(buildSettings({ dtmfCommands: next }));
+      return next;
+    });
+  };
+
+  const handleTtsToggle = (on: boolean) => {
+    setTtsEnabled(on);
+    ttsEnabledRef.current = on;
+    void persist({ ttsEnabled: on });
+  };
+  const handleAudioInputChange = (deviceId: string) => {
+    setAudioInput(deviceId);
+    void getAudioEngine().setDevices(deviceId, audioOutput);
+    void persist({ audioInput: deviceId });
+  };
+  const handleAudioOutputChange = (deviceId: string) => {
+    setAudioOutput(deviceId);
+    void getAudioEngine().setDevices(audioInput, deviceId);
+    void persist({ audioOutput: deviceId });
   };
 
   /** Register with AllStarLink if we haven't yet (best-effort, node mode). */
@@ -497,7 +613,7 @@ export default function App() {
           monitor,
         });
       }
-      if (node) rememberNode(node, { permanent: permanent || undefined, monitor: monitor || undefined });
+      if (node) addRecent(node);
       setConnectNode('');
     } catch (error) {
       log(error instanceof Error ? error.message : 'Unable to link.');
@@ -593,14 +709,16 @@ export default function App() {
       const el = document.activeElement;
       return !!el && ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName);
     };
+    const mainKey = pttKey.split('+').filter(Boolean).pop() ?? pttKey;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.code !== pttKey || event.repeat || isTyping()) return;
+      if (event.repeat || isTyping() || !comboMatches(event, pttKey)) return;
       event.preventDefault();
       if (pttMode === 'toggle') handleTransmitRef.current(!transmittingRef.current);
       else if (!transmittingRef.current) handleTransmitRef.current(true);
     };
     const onKeyUp = (event: KeyboardEvent) => {
-      if (event.code !== pttKey || pttMode !== 'hold') return;
+      // Releasing the combo's main key ends hold-to-talk (modifiers may lift first).
+      if (pttMode !== 'hold' || event.code !== mainKey) return;
       if (transmittingRef.current) handleTransmitRef.current(false);
     };
     window.addEventListener('keydown', onKeyDown);
@@ -636,6 +754,7 @@ export default function App() {
         secret: secret || undefined,
         monitor: n.monitor,
       });
+      addRecent(n.number, { callsign: n.callsign, location: n.location, description: n.description });
     } catch (error) {
       log(error instanceof Error ? error.message : `Unable to link ${n.number}.`);
     }
@@ -644,54 +763,65 @@ export default function App() {
   const guestMode = mode === 'guest';
   const receiving = rxLevel > 2;
   const identityNode = guestMode ? callsign || '—' : myNode || '—';
+  const hasNodeCreds = Boolean(myNode.trim() && secret);
+  const hasGuestCreds = Boolean(callsign.trim() && wtPassword);
+
+  /** A mode's credentials are missing — nudge the operator to Settings. */
+  const openCredsHint = (which: 'node' | 'guest') => {
+    log(
+      which === 'node'
+        ? 'Set your node number and secret in Settings to use Node mode.'
+        : 'Set your callsign and portal password in Settings to use Web Transceiver.',
+    );
+    setSettingsOpen(true);
+  };
+
+  const handleAbout = () => {
+    log('Kerchunk — self-contained AllStarLink desktop node · © 2026 W9MDM · MIT License.');
+  };
 
   return (
     <main className="min-h-screen bg-background text-foreground transition-colors duration-200">
-      <div className="mx-auto flex min-h-screen max-w-2xl flex-col gap-4 px-4 py-6">
+      <div className="mx-auto flex min-h-screen max-w-2xl flex-col gap-2.5 px-3 py-3">
         {/* Header */}
-        <header className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <img src={kerchunkIcon} alt="Kerchunk" className="h-10 w-10 rounded-[10px] shadow-card" />
-            <div>
-              <h1 className="text-lg font-semibold leading-tight">Kerchunk</h1>
-              <p className="text-xs text-muted-foreground">Self-contained AllStar node</p>
+        <header className="flex items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <img src={kerchunkIcon} alt="Kerchunk" className="h-9 w-9 shrink-0 rounded-[10px] shadow-card" />
+            <div className="min-w-0">
+              <h1 className="truncate text-base font-semibold leading-tight">Kerchunk</h1>
+              <p className="truncate text-xs text-muted-foreground">Self-contained AllStar node</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-1.5">
             <div className="flex rounded-lg bg-muted p-0.5 text-xs font-medium">
               <button
-                onClick={() => handleModeChange('node')}
-                className={`rounded-md px-3 py-1.5 transition ${
+                onClick={() => (hasNodeCreds ? handleModeChange('node') : openCredsHint('node'))}
+                title={hasNodeCreds ? 'Operate as your registered node' : 'Set your node number & secret in Settings'}
+                className={`rounded-md px-2.5 py-1.5 transition ${
                   mode === 'node' ? 'bg-connected text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'
-                }`}
+                } ${hasNodeCreds ? '' : 'opacity-50'}`}
               >
                 Node
               </button>
               <button
-                onClick={() => handleModeChange('guest')}
-                className={`rounded-md px-3 py-1.5 transition ${
+                onClick={() => (hasGuestCreds ? handleModeChange('guest') : openCredsHint('guest'))}
+                title={hasGuestCreds ? 'Operate as a Web Transceiver guest' : 'Set your callsign & portal password in Settings'}
+                className={`rounded-md px-2.5 py-1.5 transition ${
                   mode === 'guest' ? 'bg-tx text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'
-                }`}
+                } ${hasGuestCreds ? '' : 'opacity-50'}`}
               >
                 Web TX
               </button>
             </div>
-            <button
-              onClick={() => setDirectoryOpen(true)}
-              title="Browse the AllStarLink node directory"
-              aria-label="Node directory"
-              className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition hover:bg-accent hover:text-foreground"
-            >
-              <FontAwesomeIcon icon={faTowerBroadcast} />
-            </button>
-            <button
-              onClick={() => setSettingsOpen(true)}
-              title="Settings"
-              aria-label="Settings"
-              className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition hover:bg-accent hover:text-foreground"
-            >
-              <FontAwesomeIcon icon={faGear} />
-            </button>
+            <AppMenu
+              onSettings={() => setSettingsOpen(true)}
+              onDirectory={() => setDirectoryOpen(true)}
+              onRegister={() => void handleRegister()}
+              onRefresh={() => void handleRefresh()}
+              onDisconnectAll={() => void handleDisconnectAll()}
+              onAbout={handleAbout}
+              canDisconnect={connections.length > 0}
+            />
           </div>
         </header>
 
@@ -711,7 +841,31 @@ export default function App() {
         />
 
         {/* Transmit */}
-        <section className="rounded-2xl border border-border bg-card p-5 shadow-card">
+        <CollapsibleSection
+          id="transmit"
+          title="Transmit"
+          icon={faMicrophone}
+          right={(open) =>
+            open ? null : (
+              <button
+                onPointerDown={(event) => {
+                  event.currentTarget.setPointerCapture(event.pointerId);
+                  handleTransmit(true);
+                }}
+                onPointerUp={() => handleTransmit(false)}
+                onPointerCancel={() => handleTransmit(false)}
+                title={transmitting ? 'Transmitting…' : 'Hold to talk'}
+                aria-label="Push to talk"
+                className={`flex select-none items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+                  transmitting ? 'bg-tx text-white shadow-ptt' : 'bg-accent text-foreground hover:bg-accent/70'
+                }`}
+              >
+                <FontAwesomeIcon icon={faMicrophone} />
+                {transmitting ? 'TX' : 'PTT'}
+              </button>
+            )
+          }
+        >
           <div className="grid gap-2.5">
             <Meter value={txLevel} label="Transmit" tone="tx" />
             <Meter value={rxLevel} label="Receive" tone="rx" />
@@ -723,29 +877,51 @@ export default function App() {
             }}
             onPointerUp={() => handleTransmit(false)}
             onPointerCancel={() => handleTransmit(false)}
-            className={`mt-4 flex w-full select-none items-center justify-center gap-2 rounded-xl py-4 text-base font-semibold transition ${
+            className={`mt-3 flex w-full select-none items-center justify-center gap-2 rounded-xl py-4 text-base font-semibold transition ${
               transmitting ? 'bg-tx text-white shadow-ptt' : 'bg-accent text-foreground hover:bg-accent/70'
             }`}
           >
             <FontAwesomeIcon icon={faMicrophone} />
             {transmitting ? 'Transmitting…' : 'Hold to Talk'}
           </button>
-        </section>
+        </CollapsibleSection>
 
         {/* Link controls */}
-        <section className="rounded-2xl border border-border bg-card p-5 shadow-card">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold">Link a node</h2>
-            <span className="text-xs font-medium text-muted-foreground">
-              {mode === 'node' ? 'Node mode' : 'Web Transceiver'}
-            </span>
-          </div>
+        <CollapsibleSection
+          id="link"
+          title="Link a node"
+          icon={faTowerBroadcast}
+          right={<span className="text-xs font-medium text-muted-foreground">{mode === 'node' ? 'Node mode' : 'Web Transceiver'}</span>}
+        >
+          {/* Prominent directory search — the easiest way to find a node */}
+          <button
+            onClick={() => setDirectoryOpen(true)}
+            className="mb-2.5 flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-primary/50 bg-primary/5 px-4 py-2.5 text-sm font-medium text-primary transition hover:bg-primary/10"
+          >
+            <FontAwesomeIcon icon={faMagnifyingGlass} /> Search the node directory
+          </button>
 
           <div className="grid gap-2.5 sm:grid-cols-2">
             <input value={connectNode} onChange={(e) => setConnectNode(e.target.value)} inputMode="numeric" className={inputClass} placeholder="Link to node number" />
-            {savedNodes.length > 0 ? (
-              <select value="" onChange={(e) => e.target.value && setConnectNode(e.target.value)} className={inputClass}>
-                <option value="">Choose a saved node…</option>
+            <input
+              value={connectHost}
+              onChange={(e) => setConnectHost(e.target.value)}
+              disabled={mode === 'guest'}
+              className={`${inputClass} disabled:opacity-40`}
+              placeholder={mode === 'guest' ? 'node number required' : '…or direct address'}
+            />
+          </div>
+
+          {(savedNodes.length > 0 || recentNodes.length > 0) && (
+            <div className="mt-2.5 grid gap-2.5 sm:grid-cols-2">
+              <select
+                value=""
+                onChange={(e) => e.target.value && setConnectNode(e.target.value)}
+                className={inputClass}
+                disabled={savedNodes.length === 0}
+                title="Saved nodes"
+              >
+                <option value="">{savedNodes.length ? 'Saved nodes…' : 'No saved nodes'}</option>
                 {savedNodes.map((n) => {
                   const who = [n.callsign, n.note || n.description, n.location].filter(Boolean).join(' · ');
                   return (
@@ -756,18 +932,28 @@ export default function App() {
                   );
                 })}
               </select>
-            ) : (
-              <input
-                value={connectHost}
-                onChange={(e) => setConnectHost(e.target.value)}
-                disabled={mode === 'guest'}
-                className={`${inputClass} disabled:opacity-40`}
-                placeholder={mode === 'guest' ? 'node number required' : '…or direct address'}
-              />
-            )}
-          </div>
+              <select
+                value=""
+                onChange={(e) => e.target.value && setConnectNode(e.target.value)}
+                className={inputClass}
+                disabled={recentNodes.length === 0}
+                title="Recently connected nodes"
+              >
+                <option value="">{recentNodes.length ? 'Recent…' : 'No recent nodes'}</option>
+                {recentNodes.map((n) => {
+                  const who = [n.callsign, n.description, n.location].filter(Boolean).join(' · ');
+                  return (
+                    <option key={n.number} value={n.number}>
+                      {n.number}
+                      {who ? ` — ${who}` : ''}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+          )}
 
-          <div className="mt-4 flex flex-wrap items-center gap-2">
+          <div className="mt-3 flex flex-wrap items-center gap-2">
             <button
               onClick={() => void handleConnect(false)}
               className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm transition hover:opacity-90"
@@ -781,11 +967,15 @@ export default function App() {
             >
               Monitor
             </button>
-            <label className="flex items-center gap-1.5 text-sm text-muted-foreground">
-              <input type="checkbox" checked={permanent} onChange={(e) => setPermanent(e.target.checked)} />
-              Permanent
-            </label>
-            {mode === 'guest' && !callsign && (
+            <button
+              onClick={saveCurrentNode}
+              disabled={!connectNode.trim()}
+              className="rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium transition hover:bg-accent disabled:opacity-40"
+              title="Save this node to your saved list"
+            >
+              <FontAwesomeIcon icon={faFloppyDisk} /> Save
+            </button>
+            {mode === 'guest' && !hasGuestCreds && (
               <button
                 onClick={() => setSettingsOpen(true)}
                 className="ml-auto text-xs font-medium text-primary hover:underline"
@@ -794,7 +984,7 @@ export default function App() {
               </button>
             )}
           </div>
-        </section>
+        </CollapsibleSection>
 
         {/* Linked nodes (Direct — actionable) */}
         <LinkedNodes
@@ -810,7 +1000,13 @@ export default function App() {
         <NetworkTree topology={topology} onRefresh={() => void handleRefresh()} />
 
         {/* DTMF command sender */}
-        <DtmfPad connected={connections.length > 0} onSend={(digits) => void window.electronAPI.sendDtmf(digits)} />
+        <DtmfPad
+          connected={connections.length > 0}
+          onSend={(digits) => void window.electronAPI.sendDtmf(digits)}
+          commands={dtmfCommands}
+          onAddCommand={addDtmfCommand}
+          onRemoveCommand={removeDtmfCommand}
+        />
 
         <MemoActivityLog entries={activity} />
 
@@ -842,6 +1038,12 @@ export default function App() {
         pttMode={pttMode}
         onPttKeyChange={handlePttKeyChange}
         onPttModeChange={handlePttModeChange}
+        ttsEnabled={ttsEnabled}
+        onTtsToggle={handleTtsToggle}
+        audioInput={audioInput}
+        audioOutput={audioOutput}
+        onAudioInputChange={handleAudioInputChange}
+        onAudioOutputChange={handleAudioOutputChange}
         mdcEnabled={mdcEnabled}
         mdcUnitId={mdcUnitId}
         mdcTiming={mdcTiming}

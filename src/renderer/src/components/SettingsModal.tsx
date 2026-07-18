@@ -11,17 +11,39 @@ import {
   faSliders,
   faThumbtack,
   faTrash,
+  faVolumeHigh,
 } from '../icons';
 
-/** Friendly label for a KeyboardEvent.code. */
-function keyLabel(code: string): string {
-  if (!code) return 'None';
+const MODIFIER_CODES = new Set([
+  'ControlLeft',
+  'ControlRight',
+  'ShiftLeft',
+  'ShiftRight',
+  'AltLeft',
+  'AltRight',
+  'MetaLeft',
+  'MetaRight',
+]);
+
+/** Friendly label for a single KeyboardEvent.code (the combo's main key). */
+function singleKeyLabel(code: string): string {
   if (code === 'Space') return 'Space';
   if (code.startsWith('Key')) return code.slice(3);
   if (code.startsWith('Digit')) return code.slice(5);
   if (code.startsWith('Numpad')) return `Num ${code.slice(6)}`;
   if (code.startsWith('Arrow')) return code.slice(5);
   return code.replace('Left', ' L').replace('Right', ' R').replace(/([A-Z])/g, ' $1').trim();
+}
+
+const MODIFIER_LABEL: Record<string, string> = { Control: 'Ctrl', Alt: 'Alt', Shift: 'Shift', Meta: 'Win' };
+
+/** Friendly label for a '+'-joined combo (e.g. "Control+Shift+KeyT" → "Ctrl + Shift + T"). */
+function keyLabel(combo: string): string {
+  if (!combo) return 'None';
+  const parts = combo.split('+').filter(Boolean);
+  const main = parts[parts.length - 1];
+  const mods = parts.slice(0, -1).map((m) => MODIFIER_LABEL[m] ?? m);
+  return [...mods, singleKeyLabel(main)].join(' + ');
 }
 
 const inputClass =
@@ -42,11 +64,12 @@ const scaleOptions: Array<{ value: number; label: string }> = [
 ];
 const accentPresets = ['#007aff', '#5b62f0', '#8b5cf6', '#14b8a6', '#34c759', '#ff9500', '#ff3b30', '#ff2d92'];
 
-type Tab = 'node' | 'saved' | 'hotkey' | 'mdc' | 'appearance';
+type Tab = 'node' | 'saved' | 'hotkey' | 'audio' | 'mdc' | 'appearance';
 const TABS: Array<{ id: Tab; label: string; icon: typeof faUser }> = [
   { id: 'node', label: 'Node', icon: faUser },
   { id: 'saved', label: 'Saved', icon: faListUl },
   { id: 'hotkey', label: 'Hotkey', icon: faKeyboard },
+  { id: 'audio', label: 'Audio', icon: faVolumeHigh },
   { id: 'mdc', label: 'MDC1200', icon: faTowerBroadcast },
   { id: 'appearance', label: 'Appearance', icon: faSliders },
 ];
@@ -74,6 +97,12 @@ interface SettingsModalProps {
   pttMode: 'hold' | 'toggle';
   onPttKeyChange: (code: string) => void;
   onPttModeChange: (mode: 'hold' | 'toggle') => void;
+  ttsEnabled: boolean;
+  onTtsToggle: (on: boolean) => void;
+  audioInput: string;
+  audioOutput: string;
+  onAudioInputChange: (deviceId: string) => void;
+  onAudioOutputChange: (deviceId: string) => void;
   mdcEnabled: boolean;
   mdcUnitId: string;
   mdcTiming: 'start' | 'end' | 'both';
@@ -101,6 +130,8 @@ export function SettingsModal(props: SettingsModalProps) {
   const { open, onClose } = props;
   const [tab, setTab] = useState<Tab>('node');
   const [capturing, setCapturing] = useState(false);
+  const [inputs, setInputs] = useState<MediaDeviceInfo[]>([]);
+  const [outputs, setOutputs] = useState<MediaDeviceInfo[]>([]);
 
   useEffect(() => {
     if (!open) return;
@@ -111,12 +142,38 @@ export function SettingsModal(props: SettingsModalProps) {
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
 
+  // Enumerate audio devices when the Audio tab opens (labels need mic permission,
+  // which the app already holds once audio has started).
+  useEffect(() => {
+    if (!open || tab !== 'audio' || !navigator.mediaDevices?.enumerateDevices) return;
+    let cancelled = false;
+    void navigator.mediaDevices.enumerateDevices().then((devices) => {
+      if (cancelled) return;
+      setInputs(devices.filter((d) => d.kind === 'audioinput'));
+      setOutputs(devices.filter((d) => d.kind === 'audiooutput'));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, tab]);
+
   useEffect(() => {
     if (!capturing) return;
     const onKey = (e: KeyboardEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      if (e.key !== 'Escape') props.onPttKeyChange(e.code);
+      if (e.key === 'Escape') {
+        setCapturing(false);
+        return;
+      }
+      // Wait for a non-modifier main key; capture the modifiers held with it.
+      if (MODIFIER_CODES.has(e.code)) return;
+      const mods: string[] = [];
+      if (e.ctrlKey) mods.push('Control');
+      if (e.altKey) mods.push('Alt');
+      if (e.shiftKey) mods.push('Shift');
+      if (e.metaKey) mods.push('Meta');
+      props.onPttKeyChange([...mods, e.code].join('+'));
       setCapturing(false);
     };
     window.addEventListener('keydown', onKey, true);
@@ -270,8 +327,45 @@ export function SettingsModal(props: SettingsModalProps) {
                 </div>
               </div>
               <p className="mt-1.5 text-xs text-muted-foreground">
-                {props.pttMode === 'hold' ? 'Hold the key to transmit; release to stop.' : 'Press the key to start transmitting; press again to stop.'} Works even when the window is in the background (as a toggle).
+                {props.pttMode === 'hold' ? 'Hold the key to transmit; release to stop.' : 'Press the key to start transmitting; press again to stop.'} Combos work too — hold Ctrl/Alt/Shift and press a key. A combo (e.g. Ctrl+Shift+T) is the most reliable for background/global PTT, where it acts as a toggle.
               </p>
+            </div>
+          )}
+
+          {tab === 'audio' && (
+            <div className="space-y-5">
+              <div>
+                <h3 className={sectionLabel}>Voice announcements</h3>
+                <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <input type="checkbox" checked={props.ttsEnabled} onChange={(e) => props.onTtsToggle(e.target.checked)} />
+                  Speak connect / disconnect / call-failed events
+                </label>
+              </div>
+              <div>
+                <h3 className={sectionLabel}>Microphone (input)</h3>
+                <select value={props.audioInput} onChange={(e) => props.onAudioInputChange(e.target.value)} className={inputClass}>
+                  <option value="">System default</option>
+                  {inputs.map((d, i) => (
+                    <option key={d.deviceId || i} value={d.deviceId}>
+                      {d.label || `Microphone ${i + 1}`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <h3 className={sectionLabel}>Speaker (output)</h3>
+                <select value={props.audioOutput} onChange={(e) => props.onAudioOutputChange(e.target.value)} className={inputClass}>
+                  <option value="">System default</option>
+                  {outputs.map((d, i) => (
+                    <option key={d.deviceId || i} value={d.deviceId}>
+                      {d.label || `Speaker ${i + 1}`}
+                    </option>
+                  ))}
+                </select>
+                {outputs.length === 0 && (
+                  <p className="mt-1.5 text-xs text-muted-foreground">Output selection isn't available on this system; playback uses the default device.</p>
+                )}
+              </div>
             </div>
           )}
 

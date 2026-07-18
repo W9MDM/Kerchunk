@@ -50,6 +50,12 @@ export interface Topology {
   root: TopologyTreeNode;
 }
 
+/** A saved DTMF command (a named, reusable key sequence). */
+export interface DtmfCommand {
+  label: string;
+  digits: string;
+}
+
 /** A node the operator has saved to their list (favorites / remembered links). */
 export interface SavedNode {
   /** AllStarLink node number (or direct address). */
@@ -82,14 +88,27 @@ export interface NodeSettings {
   wtPassword?: string;
   /** The operator's saved node list (favorites / remembered links). */
   savedNodes?: SavedNode[];
+  /** Recently connected nodes (most-recent first, capped). Separate from saved. */
+  recentNodes?: SavedNode[];
+  /** Saved DTMF commands (named, reusable key sequences). */
+  dtmfCommands?: DtmfCommand[];
   /** UI zoom factor (text size), e.g. 0.75. Defaults to 0.75. */
   uiScale?: number;
   /** Accent color as #rrggbb. Defaults to #007aff. */
   accent?: string;
-  /** PTT hotkey as a KeyboardEvent.code (e.g. "Space", "KeyT"). Empty = none. */
+  /**
+   * PTT hotkey as a '+'-joined combo of KeyboardEvent.code parts, modifiers
+   * first (e.g. "Control+Shift+KeyT", or just "Space"). Empty = none.
+   */
   pttKey?: string;
   /** How the PTT hotkey behaves: hold to talk, or press to toggle. */
   pttMode?: 'hold' | 'toggle';
+  /** Speak connect/disconnect/failure announcements (off by default). */
+  ttsEnabled?: boolean;
+  /** Selected microphone deviceId ('' / undefined = system default). */
+  audioInput?: string;
+  /** Selected speaker deviceId ('' / undefined = system default). */
+  audioOutput?: string;
   /** Transmit an MDC1200 PTT-ID burst. */
   mdcEnabled?: boolean;
   /** MDC1200 unit ID as 4-digit hex (e.g. "1234"). */
