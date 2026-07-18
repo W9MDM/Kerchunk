@@ -3,6 +3,8 @@ import { IaxLeg, NEWKEY1STR } from './leg.js';
 import { CallState } from './call.js';
 import {
   CONTROL_ANSWER,
+  CONTROL_RADIO_KEY,
+  CONTROL_RADIO_UNKEY,
   FRAME_TYPE_CONTROL,
   FRAME_TYPE_IAX,
   FRAME_TYPE_TEXT,
@@ -15,7 +17,9 @@ import {
   isFullFrame,
 } from './frames.js';
 import {
+  IE_TYPE_CALLING_NAME,
   IE_TYPE_CALLTOKEN,
+  IE_TYPE_USERNAME,
   decodeInformationElements,
   encodeInformationElements,
   findInformationElement,
@@ -211,6 +215,68 @@ describe('IaxLeg', () => {
     leg.sendDtmf('1'); // next spontaneous reliable frame we send
     const dtmf = decodeFullFrame(sent[0]);
     expect(dtmf.iseqno).toBe(1); // still 1 (from ACCEPT), not 8 (from the ACK)
+  });
+
+  it('guest (web transceiver) legs carry the token, skip NEWKEY, and key with RADIO_KEY/UNKEY', () => {
+    const leg = new IaxLeg({
+      localCall: 1,
+      username: 'allstar-public',
+      secret: 'allstar',
+      calledNumber: '66005',
+      callingNumber: '66005',
+      callingName: '7061ff6961f7',
+      keyingMode: 'radiokey',
+    });
+    const sent: Buffer[] = [];
+    leg.on('send', (frame) => sent.push(frame));
+    leg.start();
+
+    // The NEW carries the guest username and the portal token in CALLING NAME.
+    const first = decodeFullFrame(sent[0]);
+    expect(first.subclass).toBe(IAX_NEW);
+    const ies = decodeInformationElements(first.payload);
+    expect(findInformationElement(ies, IE_TYPE_USERNAME)?.value).toBe('allstar-public');
+    expect(findInformationElement(ies, IE_TYPE_CALLING_NAME)?.value).toBe('7061ff6961f7');
+
+    const peerFrame = (frameType: number, subclass: number, oseqno: number) =>
+      encodeFullFrame({
+        sourceCall: 9,
+        destCall: 1,
+        retransmit: false,
+        timestamp: 100,
+        oseqno,
+        iseqno: 1,
+        frameType,
+        subclass,
+        payload: Buffer.alloc(0),
+      });
+    leg.handle(peerFrame(FRAME_TYPE_IAX, IAX_ACCEPT, 0));
+    leg.handle(peerFrame(FRAME_TYPE_CONTROL, CONTROL_ANSWER, 1));
+
+    // No NEWKEY handshake in guest mode…
+    const texts = sent.map((f) => decodeFullFrame(f)).filter((f) => f.frameType === FRAME_TYPE_TEXT);
+    expect(texts).toHaveLength(0);
+
+    // …PTT is signaled with RADIO_KEY / RADIO_UNKEY control frames instead.
+    leg.keyRadio();
+    leg.unkeyRadio();
+    const controls = sent
+      .map((f) => decodeFullFrame(f))
+      .filter((f) => f.frameType === FRAME_TYPE_CONTROL)
+      .map((f) => f.subclass);
+    expect(controls).toContain(CONTROL_RADIO_KEY);
+    expect(controls).toContain(CONTROL_RADIO_UNKEY);
+  });
+
+  it('node (newkey) legs ignore radio-key requests', () => {
+    const leg = new IaxLeg({ localCall: 1, calledNumber: '2000' });
+    const sent: Buffer[] = [];
+    leg.on('send', (frame) => sent.push(frame));
+    leg.start();
+    sent.length = 0;
+    leg.keyRadio();
+    leg.unkeyRadio();
+    expect(sent).toHaveLength(0);
   });
 
   it('emits hangup when torn down', () => {
