@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { KerchunkNode, type AudioCodec } from '../protocol/node.js';
 import { DEFAULT_IAX_PORT } from '../protocol/resolver.js';
+import { fetchWebTransceiverToken } from '../protocol/wtportal.js';
 import { decodeG711Chunk, encodeG711Chunk } from '../shared/audio.js';
 import {
   IPC_CHANNELS,
@@ -12,6 +13,7 @@ import {
   type NodeSettings,
   type ProtocolConnectionsPayload,
   type ProtocolDisconnectPayload,
+  type ProtocolGuestConnectPayload,
   type ProtocolRegisterPayload,
   type ProtocolStatePayload,
 } from '../shared/ipc.js';
@@ -178,6 +180,28 @@ app.whenReady().then(() => {
     }
   });
 
+  ipcMain.handle(IPC_CHANNELS.PROTOCOL_CONNECT_GUEST, async (_event, payload: ProtocolGuestConnectPayload) => {
+    const node = ensureNode();
+    const targetNode = payload.node?.trim() || undefined;
+    // Fetch the session token from the AllStarLink portal (DroidStar-style)
+    // unless one was supplied directly.
+    let token = payload.token?.trim();
+    if (!token) {
+      if (!targetNode) {
+        throw new Error('Guest mode needs a node number (the portal issues tokens per node).');
+      }
+      sendProtocolState(`fetching web-transceiver token for ${targetNode}…`);
+      token = await fetchWebTransceiverToken(payload.callsign, payload.password, targetNode);
+      sendProtocolState('web-transceiver token acquired');
+    }
+    await node.connectAsGuest({
+      node: targetNode,
+      host: payload.host?.trim() || undefined,
+      port: payload.port,
+      token,
+    });
+  });
+
   ipcMain.handle(IPC_CHANNELS.PROTOCOL_DISCONNECT, (_event, payload: ProtocolDisconnectPayload) => {
     protocolNode?.disconnectNode(payload.label);
   });
@@ -213,6 +237,10 @@ app.whenReady().then(() => {
 
   ipcMain.on(IPC_CHANNELS.PROTOCOL_TX_START, () => {
     protocolNode?.notifyTransmitStart();
+  });
+
+  ipcMain.on(IPC_CHANNELS.PROTOCOL_TX_STOP, () => {
+    protocolNode?.notifyTransmitStop();
   });
 
   ipcMain.on(IPC_CHANNELS.PROTOCOL_AUDIO_TX, (_event, payload: ProtocolAudioPayload) => {

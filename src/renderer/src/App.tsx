@@ -57,6 +57,9 @@ export default function App() {
   const [secret, setSecret] = useState('');
   const [connectNode, setConnectNode] = useState('');
   const [connectHost, setConnectHost] = useState('');
+  const [guestMode, setGuestMode] = useState(false);
+  const [callsign, setCallsign] = useState('');
+  const [wtPassword, setWtPassword] = useState('');
   const [connections, setConnections] = useState<ProtocolConnectionInfo[]>([]);
   const [topology, setTopology] = useState<Topology | null>(null);
   const [registered, setRegistered] = useState(false);
@@ -87,6 +90,8 @@ export default function App() {
       if (settings.myNode) setMyNode(settings.myNode);
       if (settings.secret) setSecret(settings.secret);
       if (settings.connectHost) setConnectHost(settings.connectHost);
+      if (settings.callsign) setCallsign(settings.callsign);
+      if (settings.wtPassword) setWtPassword(settings.wtPassword);
     });
     void window.electronAPI.getThemeState().then(setTheme);
     const disposers = [
@@ -137,16 +142,29 @@ export default function App() {
       log('Enter a node number to link to (or a direct address).');
       return;
     }
-    log(`Linking to ${host || `node ${node}`}…`);
+    if (guestMode && (!callsign.trim() || !wtPassword)) {
+      log('Guest mode needs your callsign and allstarlink.org portal password.');
+      return;
+    }
+    log(`Linking to ${host || `node ${node}`}${guestMode ? ' as guest' : ''}…`);
     try {
       await getAudioEngine().start();
-      await window.electronAPI.connect({
-        node: node || undefined,
-        host: host || undefined,
-        calledNumber: node || undefined,
-        username: myNode.trim() || undefined,
-        secret: secret || undefined,
-      });
+      if (guestMode) {
+        await window.electronAPI.connectGuest({
+          node: node || undefined,
+          host: host || undefined,
+          callsign: callsign.trim(),
+          password: wtPassword,
+        });
+      } else {
+        await window.electronAPI.connect({
+          node: node || undefined,
+          host: host || undefined,
+          calledNumber: node || undefined,
+          username: myNode.trim() || undefined,
+          secret: secret || undefined,
+        });
+      }
       setConnectNode('');
       setConnectHost('');
     } catch (error) {
@@ -190,6 +208,8 @@ export default function App() {
     setTransmitting(on);
     if (on) {
       window.electronAPI.txStart(); // re-establish the stream on each key-up
+    } else {
+      window.electronAPI.txStop(); // RADIO_UNKEY on guest (web transceiver) links
     }
   };
 
@@ -203,6 +223,8 @@ export default function App() {
       myNode: myNode.trim(),
       secret,
       connectHost: connectHost.trim(),
+      callsign: callsign.trim(),
+      wtPassword,
     });
     log('Node info saved.');
   };
@@ -278,6 +300,31 @@ export default function App() {
                 className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm"
                 placeholder="…or direct address"
               />
+              <label className="col-span-full mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={guestMode}
+                  onChange={(event) => setGuestMode(event.target.checked)}
+                />
+                Guest mode — Web Transceiver (no node number needed)
+              </label>
+              {guestMode && (
+                <>
+                  <input
+                    value={callsign}
+                    onChange={(event) => setCallsign(event.target.value)}
+                    className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm"
+                    placeholder="Your callsign"
+                  />
+                  <input
+                    value={wtPassword}
+                    onChange={(event) => setWtPassword(event.target.value)}
+                    type="password"
+                    className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm"
+                    placeholder="allstarlink.org portal password"
+                  />
+                </>
+              )}
             </div>
 
             <div className="rounded-xl border border-border bg-background/60 p-4">

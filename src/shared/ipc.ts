@@ -5,11 +5,13 @@ export const IPC_CHANNELS = {
   THEME_SET_MODE: 'theme:set-mode',
   THEME_STATE_CHANGED: 'theme:state-changed',
   PROTOCOL_CONNECT: 'protocol:connect',
+  PROTOCOL_CONNECT_GUEST: 'protocol:connect-guest',
   PROTOCOL_DISCONNECT: 'protocol:disconnect',
   PROTOCOL_REGISTER: 'protocol:register',
   PROTOCOL_SET_DEBUG: 'protocol:set-debug',
   PROTOCOL_HANGUP: 'protocol:hangup',
   PROTOCOL_TX_START: 'protocol:tx-start',
+  PROTOCOL_TX_STOP: 'protocol:tx-stop',
   PROTOCOL_AUDIO_TX: 'protocol:audio-tx',
   PROTOCOL_AUDIO_RX: 'protocol:audio-rx',
   PROTOCOL_STATE: 'protocol:state',
@@ -42,6 +44,25 @@ export interface NodeSettings {
   secret?: string;
   /** Optional direct address of a node you run. */
   connectHost?: string;
+  /** Operator callsign (guest / web-transceiver mode). */
+  callsign?: string;
+  /** AllStarLink portal password for guest token fetch (stored locally). */
+  wtPassword?: string;
+}
+
+/** Guest (Web Transceiver) connection — for operators without a node number. */
+export interface ProtocolGuestConnectPayload {
+  /** Node number to connect to (resolved via DNS) … */
+  node?: string;
+  /** … or a direct address. */
+  host?: string;
+  port?: number;
+  /** Portal (allstarlink.org) account callsign for the token fetch. */
+  callsign: string;
+  /** Portal account password. */
+  password: string;
+  /** Pre-acquired session token (skips the portal fetch when set). */
+  token?: string;
 }
 
 export interface ProtocolConnectPayload {
@@ -116,6 +137,7 @@ export interface KerchunkBridge {
   setThemeMode(mode: ThemeMode): Promise<ThemeState>;
   onThemeChange(callback: (state: ThemeState) => void): () => void;
   connect(payload: ProtocolConnectPayload): Promise<void>;
+  connectGuest(payload: ProtocolGuestConnectPayload): Promise<void>;
   disconnect(payload: ProtocolDisconnectPayload): Promise<void>;
   register(payload: ProtocolRegisterPayload): Promise<ProtocolRegistrationResult>;
   setDebug(enabled: boolean): Promise<void>;
@@ -125,6 +147,7 @@ export interface KerchunkBridge {
   getTopology(): Promise<Topology>;
   sendAudioFrame(payload: ProtocolAudioPayload): Promise<void>;
   txStart(): void;
+  txStop(): void;
   onProtocolAudio(callback: (payload: ProtocolAudioPayload) => void): () => void;
   onProtocolState(callback: (payload: ProtocolStatePayload) => void): () => void;
   onProtocolConnections(callback: (payload: ProtocolConnectionsPayload) => void): () => void;

@@ -2,6 +2,8 @@ import { EventEmitter } from 'node:events';
 import { createHash } from 'node:crypto';
 import {
   CONTROL_ANSWER,
+  CONTROL_RADIO_KEY,
+  CONTROL_RADIO_UNKEY,
   FRAME_TYPE_CONTROL,
   FRAME_TYPE_DTMF,
   FRAME_TYPE_IAX,
@@ -31,6 +33,7 @@ import {
 import { CallSession, CallState } from './call.js';
 import {
   IE_TYPE_CALLED_NUMBER,
+  IE_TYPE_CALLING_NAME,
   IE_TYPE_CALLING_NUMBER,
   IE_TYPE_CALLTOKEN,
   IE_TYPE_CAPABILITY,
@@ -65,8 +68,17 @@ export interface LegOptions {
   username?: string;
   /** CALLING NUMBER IE — our node number, which the peer validates against its IP. */
   callingNumber?: string;
+  /** CALLING NAME IE — carries the portal session token in Web Transceiver mode. */
+  callingName?: string;
   secret?: string;
   calledNumber?: string;
+  /**
+   * How PTT is signaled to the far node. 'newkey' (default, node-to-node links):
+   * !NEWKEY1! handshake + voice presence keys. 'radiokey' (guest/Web
+   * Transceiver): CONTROL RADIO_KEY/UNKEY frames, no NEWKEY handshake — this is
+   * what the original applet does.
+   */
+  keyingMode?: 'newkey' | 'radiokey';
   /** True when this leg represents an inbound call we answer, not one we placed. */
   inbound?: boolean;
 }
@@ -105,8 +117,10 @@ export class IaxLeg extends EventEmitter<LegEventMap> {
 
   private readonly username: string;
   private readonly callingNumber: string;
+  private readonly callingName: string;
   private readonly secret: string;
   private readonly calledNumber: string;
+  private readonly keyingMode: 'newkey' | 'radiokey';
   private session = new CallSession();
 
   constructor(options: LegOptions) {
@@ -114,8 +128,10 @@ export class IaxLeg extends EventEmitter<LegEventMap> {
     this.localCall = options.localCall;
     this.username = options.username ?? '';
     this.callingNumber = options.callingNumber ?? '';
+    this.callingName = options.callingName ?? '';
     this.secret = options.secret ?? '';
     this.calledNumber = options.calledNumber ?? '';
+    this.keyingMode = options.keyingMode ?? 'newkey';
   }
 
   get remoteCall(): number {
@@ -162,6 +178,10 @@ export class IaxLeg extends EventEmitter<LegEventMap> {
     if (this.callingNumber) {
       // Our node number; the far node validates it against our registered IP.
       ies.push({ type: IE_TYPE_CALLING_NUMBER, value: this.callingNumber });
+    }
+    if (this.callingName) {
+      // Web Transceiver mode: the portal-issued session token travels here.
+      ies.push({ type: IE_TYPE_CALLING_NAME, value: this.callingName });
     }
     if (this.username) {
       // The auth identity — must match a user stanza on the peer (for node-to-node
@@ -333,13 +353,29 @@ export class IaxLeg extends EventEmitter<LegEventMap> {
 
   /** app_rpt newkey handshake: sent once when the call comes up so the far node
    * keeps the link in "voice frames = keyed" mode instead of force-unkeying us
-   * when its newkeytimer expires. */
+   * when its newkeytimer expires. Node links only — guest/Web Transceiver
+   * connections key with RADIO_KEY controls instead. */
   private sendNewkey(): void {
-    if (this.newkeySent) {
+    if (this.keyingMode !== 'newkey' || this.newkeySent) {
       return;
     }
     this.newkeySent = true;
     this.sendText(NEWKEY1STR);
+  }
+
+  /** Guest/Web Transceiver PTT press: signal keying with a RADIO_KEY control
+   * frame (what the original applet sends). No-op on node (newkey) links. */
+  keyRadio(): void {
+    if (this.keyingMode === 'radiokey') {
+      this.sendFull(FRAME_TYPE_CONTROL, CONTROL_RADIO_KEY, Buffer.alloc(0));
+    }
+  }
+
+  /** Guest/Web Transceiver PTT release: RADIO_UNKEY. No-op on node links. */
+  unkeyRadio(): void {
+    if (this.keyingMode === 'radiokey') {
+      this.sendFull(FRAME_TYPE_CONTROL, CONTROL_RADIO_UNKEY, Buffer.alloc(0));
+    }
   }
 
   private handleIax(frame: FullFrame): void {
