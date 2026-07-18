@@ -1,5 +1,6 @@
 import { memo } from 'react';
 import type { ProtocolConnectionInfo } from '../../../shared/ipc';
+import { FontAwesomeIcon, faLocationDot, faUser, faRotate, faLinkSlash } from '../icons';
 
 export type SortMode = 'keyed' | 'number';
 
@@ -10,24 +11,6 @@ interface LinkedNodesProps {
   onUnlink: (label: string) => void;
   onUnlinkAll: () => void;
   onRefresh: () => void;
-}
-
-function PinIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
-      <circle cx="12" cy="10" r="2.5" />
-    </svg>
-  );
-}
-
-function PersonIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="8" r="3.5" />
-      <path d="M5 20a7 7 0 0 1 14 0" />
-    </svg>
-  );
 }
 
 export const LinkedNodes = memo(function LinkedNodes({
@@ -100,22 +83,22 @@ export const LinkedNodes = memo(function LinkedNodes({
                   </div>
                   {c.location && (
                     <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <PinIcon />
+                      <FontAwesomeIcon icon={faLocationDot} />
                       <span className="truncate">{c.location}</span>
                     </div>
                   )}
                   {c.callsign && (
                     <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <PersonIcon />
+                      <FontAwesomeIcon icon={faUser} />
                       <span className="truncate">{c.callsign}</span>
                     </div>
                   )}
                 </div>
                 <button
                   onClick={() => onUnlink(c.label)}
-                  className="ml-3 shrink-0 rounded-full border border-border px-3 py-1 text-xs font-medium transition hover:bg-destructive/10 hover:text-destructive"
+                  className="ml-3 flex shrink-0 items-center gap-1.5 rounded-full border border-border px-3 py-1 text-xs font-medium transition hover:bg-destructive/10 hover:text-destructive"
                 >
-                  Unlink
+                  <FontAwesomeIcon icon={faLinkSlash} /> Unlink
                 </button>
               </li>
             );
@@ -136,7 +119,7 @@ export const LinkedNodes = memo(function LinkedNodes({
           className="ml-auto rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-medium transition hover:bg-accent"
           title="Refresh network"
         >
-          ↻ Refresh
+          <FontAwesomeIcon icon={faRotate} /> Refresh
         </button>
       </div>
     </section>

@@ -5,7 +5,8 @@ import { fileURLToPath } from 'node:url';
 import { KerchunkNode, type AudioCodec } from '../protocol/node.js';
 import { DEFAULT_IAX_PORT } from '../protocol/resolver.js';
 import { fetchWebTransceiverToken } from '../protocol/wtportal.js';
-import { fetchNodeInfo } from '../protocol/nodeinfo.js';
+import { fetchNodeInfo, fetchNodeStats } from '../protocol/nodeinfo.js';
+import { parseAstdb, type DirectoryNode } from '../shared/nodedirectory.js';
 import { encodeMdcBurst, parseUnitId } from '../shared/mdc1200.js';
 import { decodeG711Chunk, encodeG711Chunk } from '../shared/audio.js';
 import {
@@ -260,6 +261,25 @@ function ensureNode(identity?: { username?: string; secret?: string }) {
   return protocolNode;
 }
 
+// AllStarLink node directory (astdb.txt), fetched once and cached ~6 h.
+let nodeDirectory: DirectoryNode[] | null = null;
+let nodeDirectoryAt = 0;
+async function getNodeDirectory(): Promise<DirectoryNode[]> {
+  if (nodeDirectory && Date.now() - nodeDirectoryAt < 6 * 60 * 60 * 1000) {
+    return nodeDirectory;
+  }
+  try {
+    const res = await fetch('http://allmondb.allstarlink.org/', { signal: AbortSignal.timeout(20000) });
+    if (res.ok) {
+      nodeDirectory = parseAstdb(await res.text());
+      nodeDirectoryAt = Date.now();
+    }
+  } catch (error) {
+    logMain(`node directory fetch failed: ${String(error)}`);
+  }
+  return nodeDirectory ?? [];
+}
+
 /** Push the operator's MDC1200 settings into the running node. */
 function applyMdcConfig() {
   if (!protocolNode) return;
@@ -373,6 +393,25 @@ app.whenReady().then(() => {
 
   ipcMain.handle(IPC_CHANNELS.PROTOCOL_REFRESH_CONNECTIONS, async () => {
     await protocolNode?.refreshConnections();
+  });
+
+  ipcMain.handle(IPC_CHANNELS.PROTOCOL_NODE_DIRECTORY, () => getNodeDirectory());
+
+  ipcMain.handle(IPC_CHANNELS.PROTOCOL_NODE_STATUS, async (_event, nodes: string[]) => {
+    const status: Record<string, boolean> = {};
+    // Respect the stats API rate limit — cap how many we poll per call.
+    for (const node of (nodes ?? []).slice(0, 20)) {
+      try {
+        status[node] = (await fetchNodeStats(node)).keyed;
+      } catch {
+        // leave unknown
+      }
+    }
+    return status;
+  });
+
+  ipcMain.handle(IPC_CHANNELS.PROTOCOL_SEND_DTMF, (_event, payload: { digits: string; label?: string }) => {
+    protocolNode?.sendDtmf(payload.digits, payload.label);
   });
 
   ipcMain.handle(IPC_CHANNELS.SETTINGS_GET, () => readNodeSettings());

@@ -1,4 +1,5 @@
 import { memo } from 'react';
+import { FontAwesomeIcon, faLocationDot, faUser } from '../icons';
 
 interface NodeIdentityProps {
   node: string;
@@ -14,23 +15,6 @@ interface NodeIdentityProps {
   heardMdc?: string | null;
 }
 
-function PinIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
-      <circle cx="12" cy="10" r="2.5" />
-    </svg>
-  );
-}
-
-function PersonIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="8" r="3.5" />
-      <path d="M5 20a7 7 0 0 1 14 0" />
-    </svg>
-  );
-}
 
 /** The big node-identity card (Transceive-style) — who *you* are on the network. */
 export const NodeIdentity = memo(function NodeIdentity({
@@ -74,13 +58,13 @@ export const NodeIdentity = memo(function NodeIdentity({
       <div className="mt-4 space-y-1 text-sm text-white/90">
         {location && (
           <div className="flex items-center gap-2">
-            <span className="text-white/60"><PinIcon /></span>
+            <FontAwesomeIcon icon={faLocationDot} className="text-white/60" />
             {location}
           </div>
         )}
         {(callsign || operatorName) && (
           <div className="flex items-center gap-2">
-            <span className="text-white/60"><PersonIcon /></span>
+            <FontAwesomeIcon icon={faUser} className="text-white/60" />
             {[callsign, operatorName].filter(Boolean).join(', ')}
           </div>
         )}

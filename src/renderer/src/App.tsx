@@ -8,9 +8,12 @@ import { Meter } from './components/Meter';
 import { NetworkTree } from './components/NetworkTree';
 import { NodeIdentity } from './components/NodeIdentity';
 import { SettingsModal } from './components/SettingsModal';
+import { NodeDirectory } from './components/NodeDirectory';
+import { DtmfPad } from './components/DtmfPad';
 import kerchunkIcon from './assets/kerchunk-icon.png';
 import { decodeG711Chunk } from '../../shared/audio';
 import MdcDecoderWorker from './audio/mdcDecoder.worker?worker';
+import { FontAwesomeIcon, faGear, faTowerBroadcast, faMicrophone } from './icons';
 
 // Memoized so audio-level re-renders (~12/s) don't re-render these subtrees,
 // which would starve the renderer's main thread and drop outbound mic frames.
@@ -20,25 +23,6 @@ const MemoActivityLog = memo(ActivityLog);
 const inputClass =
   'rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none transition ' +
   'placeholder:text-muted-foreground/70 focus:border-ring focus:ring-2 focus:ring-ring/30';
-
-function MicGlyph() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      width="20"
-      height="20"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <rect x="9" y="3" width="6" height="11" rx="3" />
-      <path d="M5 11a7 7 0 0 0 14 0" />
-      <path d="M12 18v3" />
-    </svg>
-  );
-}
 
 /** Rate-limit level→state updates (~12/s); pass 0 through instantly so meters settle. */
 function throttleLevel(setter: (value: number) => void): (value: number) => void {
@@ -76,6 +60,23 @@ function hexToHslTriple(hex: string): string | null {
   return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
 }
 
+/** Speak a short announcement via the browser's TTS (connect/disconnect cues). */
+function speak(text: string): void {
+  try {
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate = 1.05;
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(u);
+  } catch {
+    // TTS unavailable — ignore
+  }
+}
+
+/** Read a node number digit-by-digit so TTS is clear ("1 2 3 4 5"). */
+function spellNode(label: string): string {
+  return /^[0-9]+$/.test(label) ? label.split('').join(' ') : label;
+}
+
 /** Recolor the accent (primary + focus ring) app-wide from a hex color. */
 function applyAccent(hex: string): void {
   const triple = hexToHslTriple(hex);
@@ -83,15 +84,6 @@ function applyAccent(hex: string): void {
   const root = document.documentElement;
   root.style.setProperty('--primary', triple);
   root.style.setProperty('--ring', triple);
-}
-
-function GearGlyph() {
-  return (
-    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="3" />
-      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" />
-    </svg>
-  );
 }
 
 export default function App() {
@@ -118,6 +110,8 @@ export default function App() {
   const [transmitting, setTransmitting] = useState(false);
   const [trace, setTraceEnabled] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [directoryOpen, setDirectoryOpen] = useState(false);
+  const [keyedNumbers, setKeyedNumbers] = useState<Set<string>>(new Set());
   const [uiScale, setUiScale] = useState(0.75);
   const [accent, setAccent] = useState('#007aff');
   const [pttKey, setPttKey] = useState('');
@@ -134,6 +128,7 @@ export default function App() {
   const handleTransmitRef = useRef<(on: boolean) => void>(() => {});
   const rxMdcBuffer = useRef<number[]>([]);
   const rxMdcSeen = useRef<Map<number, number>>(new Map());
+  const prevConnRef = useRef<Set<string> | null>(null);
   const heardMdcTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const log = (message: string) => setActivity((current) => [message, ...current].slice(0, 60));
@@ -322,6 +317,43 @@ export default function App() {
     await refreshTopology();
   };
 
+  // Live keyed status for saved nodes (poll the stats API, ~45s).
+  const savedKey = savedNodes.map((n) => n.number).join(',');
+  useEffect(() => {
+    if (!savedKey) {
+      setKeyedNumbers(new Set());
+      return;
+    }
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const status = await window.electronAPI.getNodeStatus(savedKey.split(','));
+        if (!cancelled) {
+          setKeyedNumbers(new Set(Object.entries(status).filter(([, v]) => v).map(([k]) => k)));
+        }
+      } catch {
+        // ignore
+      }
+    };
+    void poll();
+    const id = setInterval(() => void poll(), 45000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [savedKey]);
+
+  // Speak connect/disconnect announcements as links come and go.
+  useEffect(() => {
+    const now = new Set(connections.map((c) => c.label));
+    const prev = prevConnRef.current;
+    if (prev) {
+      for (const label of now) if (!prev.has(label)) speak(`Connected to ${spellNode(label)}`);
+      for (const label of prev) if (!now.has(label)) speak(`${spellNode(label)} disconnected`);
+    }
+    prevConnRef.current = now;
+  }, [connections]);
+
   useEffect(() => {
     if (connections.length === 0) {
       setTopology(null);
@@ -385,9 +417,9 @@ export default function App() {
     }
   };
 
-  const handleConnect = async (monitor: boolean) => {
-    const node = connectNode.trim();
-    const host = connectHost.trim();
+  const handleConnect = async (monitor: boolean, nodeOverride?: string) => {
+    const node = (nodeOverride ?? connectNode).trim();
+    const host = nodeOverride ? '' : connectHost.trim();
     const guestMode = mode === 'guest';
     if (!node && !host) {
       log('Enter a node number to link to (or a direct address).');
@@ -598,11 +630,18 @@ export default function App() {
               </button>
             </div>
             <button
+              onClick={() => setDirectoryOpen(true)}
+              title="Node directory"
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition hover:bg-accent hover:text-foreground"
+            >
+              <FontAwesomeIcon icon={faTowerBroadcast} />
+            </button>
+            <button
               onClick={() => setSettingsOpen(true)}
               title="Settings"
               className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition hover:bg-accent hover:text-foreground"
             >
-              <GearGlyph />
+              <FontAwesomeIcon icon={faGear} />
             </button>
           </div>
         </header>
@@ -639,7 +678,7 @@ export default function App() {
               transmitting ? 'bg-tx text-white shadow-ptt' : 'bg-accent text-foreground hover:bg-accent/70'
             }`}
           >
-            <MicGlyph />
+            <FontAwesomeIcon icon={faMicrophone} />
             {transmitting ? 'Transmitting…' : 'Hold to Talk'}
           </button>
         </section>
@@ -718,63 +757,8 @@ export default function App() {
         {/* Network map (tree of the mesh you're linked into) */}
         <NetworkTree topology={topology} onRefresh={() => void handleRefresh()} />
 
-        {/* Saved nodes */}
-        {savedNodes.length > 0 && (
-          <section className="rounded-2xl border border-border bg-card p-5 shadow-card">
-            <h2 className="mb-3 text-sm font-semibold">Saved nodes</h2>
-            <ul className="space-y-1.5">
-              {savedNodes.map((n) => {
-                const isLinked = connections.some((c) => c.label === n.number);
-                return (
-                  <li
-                    key={n.number}
-                    className="flex items-center justify-between rounded-xl border border-border bg-background px-4 py-2.5"
-                  >
-                    <div className="min-w-0">
-                      <div className="text-sm">
-                        <span className="font-semibold tabular-nums">{n.number}</span>
-                        {n.note ? <span className="text-muted-foreground"> {n.note}</span> : ''}
-                        {n.monitor && <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">monitor</span>}
-                        {isLinked && <span className="ml-2 rounded-full bg-connected/15 px-2 py-0.5 text-[11px] text-connected">linked</span>}
-                      </div>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-1.5">
-                      <button
-                        onClick={() => updateSaved(n.number, { permanent: !n.permanent })}
-                        title={n.permanent ? 'Permanent (auto-links on start)' : 'Make permanent'}
-                        className={`rounded-full border px-2.5 py-1 text-xs font-medium transition ${
-                          n.permanent
-                            ? 'border-primary bg-primary/10 text-primary'
-                            : 'border-border text-muted-foreground hover:bg-accent'
-                        }`}
-                      >
-                        📌 Permanent
-                      </button>
-                      {!isLinked && (
-                        <button
-                          onClick={() => {
-                            setConnectNode(n.number);
-                            void handleConnectSaved(n);
-                          }}
-                          className="rounded-full border border-border px-3 py-1 text-xs font-medium transition hover:bg-accent"
-                        >
-                          Link
-                        </button>
-                      )}
-                      <button
-                        onClick={() => removeSaved(n.number)}
-                        title="Remove from list"
-                        className="rounded-full border border-border px-2.5 py-1 text-xs font-medium text-muted-foreground transition hover:bg-destructive/10 hover:text-destructive"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
-        )}
+        {/* DTMF command sender */}
+        <DtmfPad connected={connections.length > 0} onSend={(digits) => void window.electronAPI.sendDtmf(digits)} />
 
         <MemoActivityLog entries={activity} />
 
@@ -816,11 +800,32 @@ export default function App() {
         onMdcTimingChange={handleMdcTimingChange}
         onMdcLevelChange={handleMdcLevelChange}
         onMdcPreambleChange={handleMdcPreambleChange}
+        savedNodes={savedNodes}
+        linkedNumbers={new Set(connections.map((c) => c.label))}
+        keyedNumbers={keyedNumbers}
+        onUpdateSaved={updateSaved}
+        onRemoveSaved={removeSaved}
+        onConnectSaved={(n) => void handleConnectSaved(n)}
         registered={registered}
         onRegister={() => void handleRegister()}
         onSave={() => void handleSaveSettings()}
         trace={trace}
         onTraceToggle={(enabled) => void handleTraceToggle(enabled)}
+      />
+
+      <NodeDirectory
+        open={directoryOpen}
+        onClose={() => setDirectoryOpen(false)}
+        savedNumbers={new Set(savedNodes.map((n) => n.number))}
+        onConnect={(node) => void handleConnect(false, node)}
+        onSave={(n) =>
+          rememberNode(n.number, {
+            note: n.note,
+            callsign: n.callsign,
+            description: n.description,
+            location: n.location,
+          })
+        }
       />
     </main>
   );
