@@ -157,6 +157,16 @@ export default function App() {
     if (permanentNodes.length === 0) return;
     didAutoLink.current = true;
     void getAudioEngine().start();
+    // Auto-register (node mode) so permanent links are accepted.
+    const node = myNode.trim();
+    const registerFirst =
+      node && secret
+        ? window.electronAPI
+            .register({ node, password: secret })
+            .then((r) => setRegistered(r.success))
+            .catch(() => undefined)
+        : Promise.resolve();
+    void registerFirst.then(() => {
     for (const n of permanentNodes) {
       log(`Auto-linking permanent node ${n.number}…`);
       void window.electronAPI
@@ -169,6 +179,7 @@ export default function App() {
         })
         .catch((error) => log(error instanceof Error ? error.message : `Could not auto-link ${n.number}.`));
     }
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [savedNodes]);
 
@@ -221,6 +232,24 @@ export default function App() {
     });
   };
 
+  /** Register with AllStarLink if we haven't yet (best-effort, node mode). */
+  const ensureRegistered = async () => {
+    const node = myNode.trim();
+    if (registered || !node || !secret) return;
+    log(`Registering node ${node} with AllStarLink…`);
+    try {
+      const result = await window.electronAPI.register({ node, password: secret });
+      setRegistered(result.success);
+      log(
+        result.success
+          ? `Registered ${node} @ ${result.ipaddr ?? '?'} (refresh ${result.refresh}s).`
+          : `Registration failed: ${result.message ?? 'unknown error'}.`,
+      );
+    } catch (error) {
+      log(error instanceof Error ? error.message : 'Registration error.');
+    }
+  };
+
   const handleConnect = async (monitor: boolean) => {
     const node = connectNode.trim();
     const host = connectHost.trim();
@@ -240,6 +269,7 @@ export default function App() {
     log(`${monitor ? 'Monitoring' : 'Linking to'} ${host || `node ${node}`}${guestMode ? ' as guest' : ''}…`);
     try {
       await getAudioEngine().start();
+      if (!guestMode) await ensureRegistered(); // node mode auto-registers on Link
       if (guestMode) {
         await window.electronAPI.connectGuest({
           node: node || undefined,
@@ -323,6 +353,7 @@ export default function App() {
     log(`${n.monitor ? 'Monitoring' : 'Linking to'} node ${n.number}…`);
     try {
       await getAudioEngine().start();
+      await ensureRegistered(); // saved-node links are node-mode → auto-register
       await window.electronAPI.connect({
         node: n.number,
         calledNumber: n.number,
