@@ -88,6 +88,8 @@ export interface NodeSettings {
   mdcTiming?: 'start' | 'end' | 'both';
   /** MDC1200 burst level, 0–100 (percent of a sane max). */
   mdcLevel?: number;
+  /** MDC1200 preamble length in 0x55 bytes. */
+  mdcPreamble?: number;
 }
 
 /** AllStarLink directory metadata for a node (identity header, list rows). */

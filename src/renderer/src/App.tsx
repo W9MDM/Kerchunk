@@ -126,6 +126,7 @@ export default function App() {
   const [mdcUnitId, setMdcUnitId] = useState('');
   const [mdcTiming, setMdcTiming] = useState<'start' | 'end' | 'both'>('start');
   const [mdcLevel, setMdcLevel] = useState(52);
+  const [mdcPreamble, setMdcPreamble] = useState(24);
   const [heardMdc, setHeardMdc] = useState<string | null>(null);
   const audioEngineRef = useRef<AudioEngine | null>(null);
   const didAutoLink = useRef(false);
@@ -165,6 +166,7 @@ export default function App() {
     mdcUnitId,
     mdcTiming,
     mdcLevel,
+    mdcPreamble,
     ...overrides,
   });
 
@@ -208,6 +210,7 @@ export default function App() {
       if (settings.mdcUnitId) setMdcUnitId(settings.mdcUnitId);
       if (settings.mdcTiming) setMdcTiming(settings.mdcTiming);
       if (typeof settings.mdcLevel === 'number') setMdcLevel(settings.mdcLevel);
+      if (typeof settings.mdcPreamble === 'number') setMdcPreamble(settings.mdcPreamble);
       if (settings.myNode) void window.electronAPI.getNodeInfo(settings.myNode).then(setSelfInfo);
     });
     void window.electronAPI.getThemeState().then(setTheme);
@@ -498,6 +501,10 @@ export default function App() {
   const handleMdcLevelChange = (level: number) => {
     setMdcLevel(level);
     void persist({ mdcLevel: level });
+  };
+  const handleMdcPreambleChange = (bytes: number) => {
+    setMdcPreamble(bytes);
+    void persist({ mdcPreamble: bytes });
   };
 
   // PTT hotkey: hold-to-talk or press-to-toggle, ignored while typing in a field.
@@ -803,10 +810,12 @@ export default function App() {
         mdcUnitId={mdcUnitId}
         mdcTiming={mdcTiming}
         mdcLevel={mdcLevel}
+        mdcPreamble={mdcPreamble}
         onMdcEnabledChange={handleMdcEnabledChange}
         onMdcUnitIdChange={handleMdcUnitIdChange}
         onMdcTimingChange={handleMdcTimingChange}
         onMdcLevelChange={handleMdcLevelChange}
+        onMdcPreambleChange={handleMdcPreambleChange}
         registered={registered}
         onRegister={() => void handleRegister()}
         onSave={() => void handleSaveSettings()}
