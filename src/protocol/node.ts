@@ -470,10 +470,13 @@ export class KerchunkNode extends EventEmitter<NodeEventMap> {
       this.emit('state', `resolved ${options.node} → ${host}:${port}`);
     }
     this.emit('state', `connecting to ${label} as guest (web transceiver)`);
-    this.openLeg(host, port, options.node ?? '', label, {
+    // Web-transceiver guests dial the Asterisk start extension "s" in the
+    // allstar-public context (NOT the node number — that yields "No such
+    // context/extension"). The node number rides in the CALLING NUMBER IE.
+    // Verified against DroidStar iax.cpp send_call() (m_wt branch).
+    this.openLeg(host, port, 's', label, {
       username: 'allstar-public',
       secret: 'allstar',
-      // DroidStar sends the target node number as the calling number in WT mode.
       callingNumber: options.callingNo ?? options.node ?? '',
       callingName: options.token,
       keyingMode: 'radiokey',
