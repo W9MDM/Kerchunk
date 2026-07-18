@@ -63,7 +63,7 @@ describe('fetchNodeConnections', () => {
       },
     };
     const fetchImpl = vi.fn(async (_url: string, _init?: RequestInit) => jsonResponse(body));
-    const links = await fetchNodeConnections('43980', { fetchImpl: fetchImpl as unknown as typeof fetch });
+    const links = await fetchNodeConnections('12345', { fetchImpl: fetchImpl as unknown as typeof fetch });
     expect(links).toEqual([
       { node: '46655', callsign: 'N9IAA', location: 'Valparaiso, IN' },
       { node: '6453', callsign: undefined, location: undefined },

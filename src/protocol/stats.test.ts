@@ -4,7 +4,7 @@ import { buildKeyedUrl, buildStatusUrl, sendStatpost } from './stats.js';
 describe('statpost URL builders', () => {
   it('builds a status URL matching app_rpt field order and node list format', () => {
     const url = buildStatusUrl('http://stats.allstarlink.org/uhandler', {
-      node: '43980',
+      node: '12345',
       seqno: 5,
       timeSec: 1700000000,
       nodes: [
@@ -20,7 +20,7 @@ describe('statpost URL builders', () => {
       totalExecdCommands: 0,
     });
     expect(url).toBe(
-      'http://stats.allstarlink.org/uhandler?node=43980&time=1700000000&seqno=5' +
+      'http://stats.allstarlink.org/uhandler?node=12345&time=1700000000&seqno=5' +
         '&nodes=T66005,C46655&apprptvers=0.2.0&apprptuptime=120' +
         '&totalkerchunks=0&totalkeyups=3&totaltxtime=42&timeouts=0&totalexecdcommands=0',
     );
@@ -28,7 +28,7 @@ describe('statpost URL builders', () => {
 
   it('builds an empty node list when nothing is connected', () => {
     const url = buildStatusUrl('http://x/uhandler', {
-      node: '43980',
+      node: '12345',
       seqno: 1,
       timeSec: 1,
       nodes: [],
@@ -45,8 +45,8 @@ describe('statpost URL builders', () => {
 
   it('builds a keyed URL', () => {
     expect(
-      buildKeyedUrl('http://x/uhandler', { node: '43980', seqno: 2, timeSec: 10, keyed: true, keyTimeSec: 4 }),
-    ).toBe('http://x/uhandler?node=43980&time=10&seqno=2&keyed=1&keytime=4');
+      buildKeyedUrl('http://x/uhandler', { node: '12345', seqno: 2, timeSec: 10, keyed: true, keyTimeSec: 4 }),
+    ).toBe('http://x/uhandler?node=12345&time=10&seqno=2&keyed=1&keytime=4');
   });
 
   it('sends via GET and reports success/failure without throwing', async () => {

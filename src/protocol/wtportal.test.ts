@@ -6,7 +6,7 @@ const WT_HTML = [
   '<applet id="WebTransceiver">',
   '<param name="user" value="allstar-public"/>',
   '<param name="callingName" value="7061ff6961f7"/>',
-  '<param name="callSign" value="W9MDM"/>',
+  '<param name="callSign" value="N0CALL"/>',
   '</applet>',
   '</html>',
 ].join('\n');
@@ -40,7 +40,7 @@ describe('fetchWebTransceiverToken', () => {
     const fetchImpl = vi.fn(async (url: string, init?: RequestInit) => {
       if (url.endsWith('/login.php')) {
         expect(init?.method).toBe('POST');
-        expect(init?.body).toBe('user=W9MDM&pass=pw%26stuff');
+        expect(init?.body).toBe('user=N0CALL&pass=pw%26stuff');
         return response('', { setCookie: ['PHPSESSID=abc123; path=/', 'other=1; path=/'] });
       }
       expect(url).toContain('/webtransceiver.php?node=66005');
@@ -48,7 +48,7 @@ describe('fetchWebTransceiverToken', () => {
       return response(WT_HTML);
     });
 
-    const token = await fetchWebTransceiverToken('W9MDM', 'pw&stuff', '66005', {
+    const token = await fetchWebTransceiverToken('N0CALL', 'pw&stuff', '66005', {
       fetchImpl: fetchImpl as unknown as typeof fetch,
     });
     expect(token).toBe('7061ff6961f7');
@@ -57,7 +57,7 @@ describe('fetchWebTransceiverToken', () => {
   it('fails clearly when login yields no session cookie', async () => {
     const fetchImpl = vi.fn(async (_url: string, _init?: RequestInit) => response(''));
     await expect(
-      fetchWebTransceiverToken('W9MDM', 'bad', '66005', { fetchImpl: fetchImpl as unknown as typeof fetch }),
+      fetchWebTransceiverToken('N0CALL', 'bad', '66005', { fetchImpl: fetchImpl as unknown as typeof fetch }),
     ).rejects.toThrow(/login failed/);
   });
 
@@ -68,7 +68,7 @@ describe('fetchWebTransceiverToken', () => {
         : response('<html>denied</html>'),
     );
     await expect(
-      fetchWebTransceiverToken('W9MDM', 'pw', '66005', { fetchImpl: fetchImpl as unknown as typeof fetch }),
+      fetchWebTransceiverToken('N0CALL', 'pw', '66005', { fetchImpl: fetchImpl as unknown as typeof fetch }),
     ).rejects.toThrow(/No web-transceiver token/);
   });
 });
