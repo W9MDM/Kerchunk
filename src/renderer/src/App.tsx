@@ -728,12 +728,15 @@ export default function App() {
             {savedNodes.length > 0 ? (
               <select value="" onChange={(e) => e.target.value && setConnectNode(e.target.value)} className={inputClass}>
                 <option value="">Choose a saved node…</option>
-                {savedNodes.map((n) => (
-                  <option key={n.number} value={n.number}>
-                    {n.number}
-                    {n.note ? ` — ${n.note}` : ''}
-                  </option>
-                ))}
+                {savedNodes.map((n) => {
+                  const who = [n.callsign, n.note || n.description, n.location].filter(Boolean).join(' · ');
+                  return (
+                    <option key={n.number} value={n.number}>
+                      {n.number}
+                      {who ? ` — ${who}` : ''}
+                    </option>
+                  );
+                })}
               </select>
             ) : (
               <input
