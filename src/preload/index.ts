@@ -8,6 +8,7 @@ import {
   type ProtocolConnectionsPayload,
   type ProtocolDisconnectPayload,
   type ProtocolDtmfPayload,
+  type ProtocolGuestConnectPayload,
   type ProtocolRegisterPayload,
   type ProtocolStatePayload,
 } from '../shared/ipc.js';
@@ -25,6 +26,8 @@ const electronAPI: KerchunkBridge = {
   onThemeChange: (callback: (state: ThemeState) => void) =>
     subscribe(THEME_CHANNELS.STATE_CHANGED, callback),
   connect: (payload: ProtocolConnectPayload) => ipcRenderer.invoke(IPC_CHANNELS.PROTOCOL_CONNECT, payload),
+  connectGuest: (payload: ProtocolGuestConnectPayload) =>
+    ipcRenderer.invoke(IPC_CHANNELS.PROTOCOL_CONNECT_GUEST, payload),
   disconnect: (payload: ProtocolDisconnectPayload) =>
     ipcRenderer.invoke(IPC_CHANNELS.PROTOCOL_DISCONNECT, payload),
   register: (payload: ProtocolRegisterPayload) => ipcRenderer.invoke(IPC_CHANNELS.PROTOCOL_REGISTER, payload),
@@ -39,6 +42,7 @@ const electronAPI: KerchunkBridge = {
     return Promise.resolve();
   },
   txStart: () => ipcRenderer.send(IPC_CHANNELS.PROTOCOL_TX_START),
+  txStop: () => ipcRenderer.send(IPC_CHANNELS.PROTOCOL_TX_STOP),
   onProtocolAudio: (callback: (payload: ProtocolAudioPayload) => void) =>
     subscribe(IPC_CHANNELS.PROTOCOL_AUDIO_RX, callback),
   onProtocolState: (callback: (payload: ProtocolStatePayload) => void) =>

@@ -440,7 +440,62 @@ export class KerchunkNode extends EventEmitter<NodeEventMap> {
     this.openLeg(host, port ?? DEFAULT_IAX_PORT, calledNumber ?? '', host);
   }
 
-  private openLeg(host: string, port: number, calledNumber: string, label: string): void {
+  /**
+   * Connect as a guest (Web Transceiver mode) — for operators without a node
+   * number. Authenticates with the well-known allstar-public/allstar guest user
+   * and carries the AllStarLink-portal session token in the CALLING NAME IE
+   * (validated node-side against the portal). PTT is signaled with
+   * RADIO_KEY/UNKEY control frames, exactly like the original applet. Only
+   * nodes with web-transceiver access enabled accept these connections.
+   */
+  async connectAsGuest(options: {
+    node?: string;
+    host?: string;
+    port?: number;
+    token: string;
+    callingNo?: string;
+  }): Promise<void> {
+    let host = options.host?.trim();
+    let port = options.port ?? DEFAULT_IAX_PORT;
+    let label = options.node ?? host ?? 'guest';
+    if (!host) {
+      if (!options.node) {
+        throw new Error('Provide a node number or address to connect to.');
+      }
+      this.emit('state', `resolving node ${options.node}`);
+      const resolved = await this.resolveNodeNumber(options.node);
+      host = resolved.host;
+      port = resolved.port;
+      label = options.node;
+      this.emit('state', `resolved ${options.node} → ${host}:${port}`);
+    }
+    this.emit('state', `connecting to ${label} as guest (web transceiver)`);
+    // Web-transceiver guests dial the Asterisk start extension "s" in the
+    // allstar-public context (NOT the node number — that yields "No such
+    // context/extension"). The node number rides in the CALLING NUMBER IE.
+    // Verified against DroidStar iax.cpp send_call() (m_wt branch).
+    this.openLeg(host, port, 's', label, {
+      username: 'allstar-public',
+      secret: 'allstar',
+      callingNumber: options.callingNo ?? options.node ?? '',
+      callingName: options.token,
+      keyingMode: 'radiokey',
+    });
+  }
+
+  private openLeg(
+    host: string,
+    port: number,
+    calledNumber: string,
+    label: string,
+    overrides?: {
+      username?: string;
+      secret?: string;
+      callingNumber?: string;
+      callingName?: string;
+      keyingMode?: 'newkey' | 'radiokey';
+    },
+  ): void {
     for (const existing of this.byLocalCall.values()) {
       if (existing.label === label) {
         this.emit('state', `already linked to ${label}`);
@@ -451,10 +506,12 @@ export class KerchunkNode extends EventEmitter<NodeEventMap> {
     const localCall = this.allocateCall();
     const leg = new IaxLeg({
       localCall,
-      username: this.linkUsername || undefined,
-      callingNumber: this.nodeNumber || undefined,
-      secret: this.secret || undefined,
+      username: overrides?.username ?? (this.linkUsername || undefined),
+      callingNumber: overrides?.callingNumber ?? (this.nodeNumber || undefined),
+      callingName: overrides?.callingName,
+      secret: overrides?.secret ?? (this.secret || undefined),
       calledNumber: calledNumber || undefined,
+      keyingMode: overrides?.keyingMode,
     });
     const connection: Connection = { leg, host, port, label, state: 'idle', up: false, rxQueue: [], info: null };
     this.byLocalCall.set(localCall, connection);
@@ -511,11 +568,23 @@ export class KerchunkNode extends EventEmitter<NodeEventMap> {
   }
 
   /** The operator keyed up (PTT press): tell every link to re-establish its
-   * stream with a full frame so far nodes/repeaters cleanly key up. */
+   * stream with a full frame so far nodes/repeaters cleanly key up, and send
+   * RADIO_KEY on guest (web-transceiver) legs. */
   notifyTransmitStart(): void {
     for (const connection of this.byLocalCall.values()) {
       if (connection.up) {
         connection.leg.markKeyStart();
+        connection.leg.keyRadio(); // no-op on node (newkey) links
+      }
+    }
+  }
+
+  /** The operator released PTT: RADIO_UNKEY on guest legs (node links unkey
+   * implicitly when voice frames stop). */
+  notifyTransmitStop(): void {
+    for (const connection of this.byLocalCall.values()) {
+      if (connection.up) {
+        connection.leg.unkeyRadio(); // no-op on node (newkey) links
       }
     }
   }
