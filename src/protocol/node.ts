@@ -178,6 +178,9 @@ export interface TopologyTreeNode {
   node: string;
   callsign?: string;
   location?: string;
+  description?: string;
+  frequency?: string;
+  tone?: string;
   keyed?: boolean;
   isSelf?: boolean;
   truncated?: boolean;
@@ -691,6 +694,17 @@ export class KerchunkNode extends EventEmitter<NodeEventMap> {
       }
       visited.add(nodeNum);
       budget -= 1;
+      // Enrich this node's own detail (frequency/description/location) for the
+      // Network list, reusing the shared cache so we don't refetch direct links.
+      const info = this.nodeInfoCache.get(nodeNum) ?? (await fetchNodeInfo(nodeNum, { fetchImpl: this.fetchImpl }));
+      if (info) {
+        this.nodeInfoCache.set(nodeNum, info);
+        treeNode.callsign = treeNode.callsign ?? info.callsign;
+        treeNode.location = treeNode.location ?? info.location;
+        treeNode.description = info.description;
+        treeNode.frequency = info.frequency;
+        treeNode.tone = info.tone;
+      }
       const stats = await fetchNodeStats(nodeNum, { fetchImpl: this.fetchImpl });
       treeNode.keyed = stats.keyed;
       treeNode.children = await Promise.all(

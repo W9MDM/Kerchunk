@@ -27,6 +27,9 @@ export interface TopologyTreeNode {
   node: string;
   callsign?: string;
   location?: string;
+  description?: string;
+  frequency?: string;
+  tone?: string;
   keyed?: boolean;
   isSelf?: boolean;
   truncated?: boolean;
