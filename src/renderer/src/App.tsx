@@ -995,6 +995,11 @@ export default function App() {
           onUnlink={(label) => void handleDisconnect(label)}
           onUnlinkAll={() => void handleDisconnectAll()}
           onRefresh={() => void handleRefresh()}
+          onSave={(c) => {
+            rememberNode(c.label, { callsign: c.callsign, location: c.location, description: c.description });
+            log(`Saved node ${c.label}.`);
+          }}
+          savedNumbers={new Set(savedNodes.map((n) => n.number))}
         />
 
         {/* Network map (tree of the mesh you're linked into) */}

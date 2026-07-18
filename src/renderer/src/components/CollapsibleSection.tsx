@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { FontAwesomeIcon, faChevronDown, faChevronRight } from '../icons';
 
 /** Persisted collapse state per section id (pure UI state → localStorage). */
-function useCollapsed(id: string, defaultOpen: boolean): [boolean, () => void] {
+export function useCollapsed(id: string, defaultOpen: boolean): [boolean, () => void] {
   const key = `kerchunk.section.${id}`;
   const [open, setOpen] = useState<boolean>(() => {
     try {
