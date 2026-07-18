@@ -28,6 +28,29 @@ registration/portal HTTPS, and IAX2 on UDP 4569) — no inbound ports needed.
   callsign and portal password; Kerchunk fetches a per-node session token
   from the portal and connects as a guest.
 
+The Node / Web TX choice, like the rest of your settings, is remembered
+across restarts.
+
+## Features
+
+- **Node directory** (📡 button by the gear) — searches the full AllStarLink
+  node database, grouped by country and US state, so you can find and one-click
+  link a node without knowing its number. Saving a node keeps its callsign,
+  description, and location.
+- **Favorites / saved nodes** — a quick-pick dropdown and an editable list in
+  Settings, with live "keyed" coloring polled from the AllStarLink stats API so
+  you can see which of your favorites are active.
+- **MDC1200 PTT-ID** — clean-room encoder that sends your unit ID over the air
+  on key-up/key-down (confirmed decoding on app_rpt), with a local Motorola-style
+  talk-permit tone and adjustable level/preamble.
+- **DTMF commands** — a keypad and free-form sender for app_rpt `*` commands.
+- **Voice announcements** — spoken connect / disconnect / call-failed events.
+- **Push-to-talk** — on-screen hold-to-talk plus a global PTT hotkey
+  (hold or toggle).
+- **Network topology** — a live tree of the mesh you're linked into.
+- **Tabbed Settings** — Node, Saved nodes, Hotkey, MDC1200, and Appearance
+  (theme, accent color, text size); everything persists.
+
 ## Why Kerchunk exists
 
 The original AllCall concept aimed to give users a practical way to participate in AllStarLink-style linking from a desktop environment. Kerchunk carries that idea forward with a modern desktop application that keeps the node experience local, focused, and testable.
@@ -48,7 +71,8 @@ The original AllCall concept aimed to give users a practical way to participate 
 - Node-number linking over AllStarLink DNS (`nodes.allstarlink.org` SRV/A/TXT):
   link to a node by number, or to a direct address (a node/hub you run).
   Outbound linking only for now; the socket is structured so accepting inbound
-  is a later toggle.
+  is a later toggle. Outbound calls that go unanswered time out after 15 s
+  (instead of hanging in "calling" forever) and announce the failure.
 - ASL3 HTTP registration (`register.allstarlink.org`) with automatic refresh, so
   the node publishes its number → public IP and other nodes accept its links.
 - Standard ITU-T G.711 µ-law/A-law codecs, wire-compatible with Asterisk.
@@ -57,7 +81,9 @@ The original AllCall concept aimed to give users a practical way to participate 
   playback of the node's mixed RX audio.
 - The desktop UI exposes node identity, link-by-number (or address), a live
   connected-nodes list with per-link disconnect, drop-all, and push-to-talk,
-  plus TX/RX level meters and an activity log.
+  plus TX/RX level meters and an activity log. Icons throughout are Font Awesome
+  (bundled inline; no webfont fetch), with tooltips and screen-reader labels on
+  icon-only controls.
 - Vitest covers the codecs, frame wire format, IE handling, the call state
   machine, the framing helper, DNS resolution, the conference mixer, the call
   leg, and the node end-to-end (bidirectional conference over real UDP).
@@ -71,20 +97,25 @@ npm install
 npm run dev          # run in development
 npm run dist:win     # build the Windows installer + portable .exe → release/
 npm run dist:mac     # macOS .dmg (must run on macOS)
-npm run dist:linux   # Linux AppImage + .deb
+npm run dist:linux   # Linux build (packaged as a tarball; see note below)
 npm test             # run the Vitest suite
 ```
 
 Build artifacts land in `release/`. The app icon is generated into
 `build/icon.png` and electron-builder derives the per-platform icons from it.
 
+> **Linux packaging note:** the AppImage/`.deb` targets can't be assembled on
+> Windows (`mksquashfs` isn't available), so the Windows workflow ships Linux as
+> a `Kerchunk-x.y.z-linux-x64.tar.gz` tarball built from `release/linux-unpacked`
+> (with a `run.sh` launcher). Build the native AppImage/`.deb` on Linux or in CI.
+
 ## Roadmap
 
 1. Inbound-link support (accept NEW; UDP 4569 forwarding / reachability check).
 2. Reliable delivery for full frames (retransmission, sequence recovery).
-3. app_rpt niceties: connect/disconnect telemetry, courtesy tones, node ID.
+3. Remaining app_rpt niceties: courtesy tones, CW/voice node ID.
 4. Full 32-bit format negotiation and codec fallback beyond G.711.
-5. Desktop settings, persistence, and tray integration.
+5. Tray integration and background operation.
 6. Code-signing for signed, SmartScreen-clean installers.
 
 ## License
