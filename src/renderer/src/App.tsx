@@ -5,6 +5,7 @@ import { AudioEngine } from './audio/engine';
 import { ActivityLog } from './components/ActivityLog';
 import { LinkedNodes, type SortMode } from './components/LinkedNodes';
 import { Meter } from './components/Meter';
+import { NetworkTree } from './components/NetworkTree';
 import { NodeIdentity } from './components/NodeIdentity';
 import { SettingsModal } from './components/SettingsModal';
 
@@ -478,16 +479,17 @@ export default function App() {
           </div>
         </section>
 
-        {/* Linked nodes (Direct + Network) */}
+        {/* Linked nodes (Direct — actionable) */}
         <LinkedNodes
           connections={connections}
-          topology={topology}
           sortMode={sortMode}
           onSort={setSortMode}
           onUnlink={(label) => void handleDisconnect(label)}
           onUnlinkAll={() => void handleDisconnectAll()}
-          onRefresh={() => void refreshTopology()}
         />
+
+        {/* Network map (tree of the mesh you're linked into) */}
+        <NetworkTree topology={topology} onRefresh={() => void refreshTopology()} />
 
         {/* Saved nodes */}
         {savedNodes.length > 0 && (
