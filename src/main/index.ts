@@ -267,7 +267,7 @@ function applyMdcConfig() {
   // Map the 0–100 UI level to a peak amplitude (100 ≈ 0.3). Default 65 ≈ 0.19 to
   // match a real radio's received level — lower levels arrive too weak and the
   // data codeword picks up bit errors that fail CRC even with app_rpt's FEC.
-  const level = ((s.mdcLevel ?? 65) / 100) * 0.3;
+  const level = ((s.mdcLevel ?? 52) / 100) * 0.3;
   protocolNode.setMdcConfig({
     enabled: Boolean(s.mdcEnabled),
     unitId: parseUnitId(s.mdcUnitId ?? '') ?? 0,

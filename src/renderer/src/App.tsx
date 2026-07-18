@@ -125,7 +125,7 @@ export default function App() {
   const [mdcEnabled, setMdcEnabled] = useState(false);
   const [mdcUnitId, setMdcUnitId] = useState('');
   const [mdcTiming, setMdcTiming] = useState<'start' | 'end' | 'both'>('start');
-  const [mdcLevel, setMdcLevel] = useState(65);
+  const [mdcLevel, setMdcLevel] = useState(52);
   const [heardMdc, setHeardMdc] = useState<string | null>(null);
   const audioEngineRef = useRef<AudioEngine | null>(null);
   const didAutoLink = useRef(false);
