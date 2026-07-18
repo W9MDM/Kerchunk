@@ -1,0 +1,238 @@
+import { app, BrowserWindow, ipcMain, nativeTheme } from 'electron';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { KerchunkNode, type AudioCodec } from '../protocol/node.js';
+import { DEFAULT_IAX_PORT } from '../protocol/resolver.js';
+import { decodeG711Chunk, encodeG711Chunk } from '../shared/audio.js';
+import {
+  IPC_CHANNELS,
+  type ProtocolAudioPayload,
+  type ProtocolConnectPayload,
+  type NodeSettings,
+  type ProtocolConnectionsPayload,
+  type ProtocolDisconnectPayload,
+  type ProtocolRegisterPayload,
+  type ProtocolStatePayload,
+} from '../shared/ipc.js';
+import { resolveTheme, THEME_CHANNELS, type ThemeMode } from '../shared/theme.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+let mainWindow: BrowserWindow | null = null;
+let protocolNode: KerchunkNode | null = null;
+const preferencesPath = path.join(app.getPath('userData'), 'preferences.json');
+
+const g711Codec: AudioCodec = {
+  decode: (payload) => decodeG711Chunk(payload),
+  encode: (samples) => encodeG711Chunk(samples),
+};
+
+interface Preferences {
+  themeMode?: ThemeMode;
+  nodeSettings?: NodeSettings;
+}
+
+function readPreferences(): Preferences {
+  try {
+    return JSON.parse(readFileSync(preferencesPath, 'utf8')) as Preferences;
+  } catch {
+    return {};
+  }
+}
+
+function writePreferences(prefs: Preferences) {
+  mkdirSync(path.dirname(preferencesPath), { recursive: true });
+  writeFileSync(preferencesPath, JSON.stringify(prefs, null, 2));
+}
+
+function readThemePreference(): ThemeMode {
+  const mode = readPreferences().themeMode;
+  return mode === 'light' || mode === 'dark' || mode === 'system' ? mode : 'system';
+}
+
+function writeThemePreference(mode: ThemeMode) {
+  writePreferences({ ...readPreferences(), themeMode: mode });
+}
+
+function readNodeSettings(): NodeSettings {
+  return readPreferences().nodeSettings ?? {};
+}
+
+function writeNodeSettings(settings: NodeSettings) {
+  writePreferences({ ...readPreferences(), nodeSettings: settings });
+}
+
+function createWindow() {
+  mainWindow = new BrowserWindow({
+    width: 1280,
+    height: 860,
+    title: 'Kerchunk',
+    show: false,
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#111827' : '#f9fafb',
+    webPreferences: {
+      preload: path.join(__dirname, '../preload/index.cjs'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+
+  // electron-vite serves the renderer from a dev server and exposes its URL via
+  // ELECTRON_RENDERER_URL. In a packaged/built app that variable is absent and we
+  // load the bundled HTML from disk instead.
+  const rendererUrl = process.env.ELECTRON_RENDERER_URL;
+
+  if (rendererUrl) {
+    void mainWindow.loadURL(rendererUrl);
+  } else {
+    void mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
+  }
+
+  mainWindow.once('ready-to-show', () => {
+    mainWindow?.show();
+  });
+
+  mainWindow.on('closed', () => {
+    mainWindow = null;
+  });
+}
+
+function broadcastTheme(mode: ThemeMode = readThemePreference()) {
+  if (!mainWindow) {
+    return;
+  }
+
+  const resolved = resolveTheme(mode, nativeTheme.shouldUseDarkColors);
+  mainWindow.webContents.send(THEME_CHANNELS.STATE_CHANGED, { mode, resolved });
+}
+
+function sendProtocolState(state: string) {
+  const payload: ProtocolStatePayload = { state };
+  mainWindow?.webContents.send(IPC_CHANNELS.PROTOCOL_STATE, payload);
+}
+
+function ensureNode(identity?: { username?: string; secret?: string }) {
+  if (!protocolNode) {
+    protocolNode = new KerchunkNode({
+      codec: g711Codec,
+      nodeNumber: identity?.username,
+      secret: identity?.secret,
+      debug: false,
+    });
+    protocolNode.on('localAudio', (payload) => {
+      const frame = payload.buffer.slice(
+        payload.byteOffset,
+        payload.byteOffset + payload.byteLength,
+      ) as ArrayBuffer;
+      const message: ProtocolAudioPayload = { frame };
+      mainWindow?.webContents.send(IPC_CHANNELS.PROTOCOL_AUDIO_RX, message);
+    });
+    protocolNode.on('connections', (connections) => {
+      const message: ProtocolConnectionsPayload = { connections };
+      mainWindow?.webContents.send(IPC_CHANNELS.PROTOCOL_CONNECTIONS, message);
+    });
+    protocolNode.on('state', (state) => sendProtocolState(state));
+    protocolNode.on('dtmf', (digit) => {
+      mainWindow?.webContents.send(IPC_CHANNELS.PROTOCOL_DTMF, { digit });
+    });
+    protocolNode.on('error', (error) => sendProtocolState(`error: ${error.message}`));
+    protocolNode.start();
+  }
+  // Keep identity current even if the node already existed from an earlier action.
+  protocolNode.setIdentity(identity?.username, identity?.secret);
+  return protocolNode;
+}
+
+app.whenReady().then(() => {
+  createWindow();
+
+  ipcMain.handle(THEME_CHANNELS.GET_STATE, () => {
+    const mode = readThemePreference();
+    return {
+      mode,
+      resolved: resolveTheme(mode, nativeTheme.shouldUseDarkColors),
+    };
+  });
+
+  ipcMain.handle(THEME_CHANNELS.SET_MODE, (_event, mode: ThemeMode) => {
+    writeThemePreference(mode);
+    const resolved = resolveTheme(mode, nativeTheme.shouldUseDarkColors);
+    nativeTheme.themeSource = mode === 'system' ? 'system' : mode;
+    broadcastTheme(mode);
+    return { mode, resolved };
+  });
+
+  ipcMain.handle(IPC_CHANNELS.PROTOCOL_CONNECT, async (_event, payload: ProtocolConnectPayload) => {
+    const node = ensureNode({ username: payload.username, secret: payload.secret });
+
+    // A direct host links to a node you run; otherwise the node number is
+    // resolved to an address via AllStarLink DNS.
+    const host = payload.host?.trim();
+    if (host) {
+      node.connectToAddress(host, payload.port ?? DEFAULT_IAX_PORT, payload.calledNumber ?? payload.node);
+    } else if (payload.node?.trim()) {
+      await node.connectToNode(payload.node.trim());
+    } else {
+      throw new Error('Provide a node number or address to connect to.');
+    }
+  });
+
+  ipcMain.handle(IPC_CHANNELS.PROTOCOL_DISCONNECT, (_event, payload: ProtocolDisconnectPayload) => {
+    protocolNode?.disconnectNode(payload.label);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.PROTOCOL_REGISTER, async (_event, payload: ProtocolRegisterPayload) => {
+    const node = ensureNode({ username: payload.node, secret: payload.password });
+    const result = await node.register(payload.password);
+    return {
+      success: result.success,
+      ipaddr: result.ipaddr,
+      refresh: result.refresh,
+      message: result.message,
+    };
+  });
+
+  ipcMain.handle(IPC_CHANNELS.PROTOCOL_TOPOLOGY, async () => {
+    return protocolNode ? await protocolNode.getTopology() : { node: '', connections: [] };
+  });
+
+  ipcMain.handle(IPC_CHANNELS.SETTINGS_GET, () => readNodeSettings());
+
+  ipcMain.handle(IPC_CHANNELS.SETTINGS_SET, (_event, settings: NodeSettings) => {
+    writeNodeSettings(settings);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.PROTOCOL_SET_DEBUG, (_event, enabled: boolean) => {
+    ensureNode().setDebug(enabled);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.PROTOCOL_HANGUP, () => {
+    protocolNode?.disconnectAll();
+  });
+
+  ipcMain.on(IPC_CHANNELS.PROTOCOL_TX_START, () => {
+    protocolNode?.notifyTransmitStart();
+  });
+
+  ipcMain.on(IPC_CHANNELS.PROTOCOL_AUDIO_TX, (_event, payload: ProtocolAudioPayload) => {
+    // Local mic frame → the node's local conference port (fire-and-forget).
+    protocolNode?.pushLocalAudio(new Uint8Array(payload.frame));
+  });
+
+  nativeTheme.on('updated', () => {
+    broadcastTheme();
+  });
+
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) {
+      createWindow();
+    }
+  });
+});
+
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') {
+    app.quit();
+  }
+});
