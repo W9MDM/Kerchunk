@@ -11,6 +11,13 @@ const themeOptions: Array<{ value: ThemeMode; label: string }> = [
   { value: 'dark', label: 'Dark' },
 ];
 
+const scaleOptions: Array<{ value: number; label: string }> = [
+  { value: 0.65, label: 'Small' },
+  { value: 0.75, label: 'Default' },
+  { value: 0.85, label: 'Large' },
+  { value: 1.0, label: 'X-Large' },
+];
+
 interface SettingsModalProps {
   open: boolean;
   onClose: () => void;
@@ -26,6 +33,8 @@ interface SettingsModalProps {
   setWtPassword: (v: string) => void;
   theme: ThemeState;
   onThemeChange: (mode: ThemeMode) => void;
+  uiScale: number;
+  onScaleChange: (factor: number) => void;
   registered: boolean;
   onRegister: () => void;
   onSave: () => void;
@@ -143,6 +152,26 @@ export function SettingsModal(props: SettingsModalProps) {
                   onClick={() => props.onThemeChange(option.value)}
                   className={`flex-1 rounded-md px-3 py-1.5 font-medium transition ${
                     props.theme.mode === option.value
+                      ? 'bg-card text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Text size */}
+          <div>
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Text size</h3>
+            <div className="flex rounded-lg bg-muted p-0.5 text-sm">
+              {scaleOptions.map((option) => (
+                <button
+                  key={option.value}
+                  onClick={() => props.onScaleChange(option.value)}
+                  className={`flex-1 rounded-md px-3 py-1.5 font-medium transition ${
+                    Math.abs(props.uiScale - option.value) < 0.001
                       ? 'bg-card text-foreground shadow-sm'
                       : 'text-muted-foreground hover:text-foreground'
                   }`}

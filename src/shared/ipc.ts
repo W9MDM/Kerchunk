@@ -22,6 +22,7 @@ export const IPC_CHANNELS = {
   PROTOCOL_REFRESH_CONNECTIONS: 'protocol:refresh-connections',
   SETTINGS_GET: 'settings:get',
   SETTINGS_SET: 'settings:set',
+  WINDOW_SET_ZOOM: 'window:set-zoom',
 } as const;
 
 export interface TopologyTreeNode {
@@ -69,6 +70,8 @@ export interface NodeSettings {
   wtPassword?: string;
   /** The operator's saved node list (favorites / remembered links). */
   savedNodes?: SavedNode[];
+  /** UI zoom factor (text size), e.g. 0.75. Defaults to 0.75. */
+  uiScale?: number;
 }
 
 /** AllStarLink directory metadata for a node (identity header, list rows). */
@@ -182,6 +185,7 @@ export interface KerchunkBridge {
   hangup(): Promise<void>;
   getSettings(): Promise<NodeSettings>;
   saveSettings(settings: NodeSettings): Promise<void>;
+  setZoom(factor: number): Promise<void>;
   getTopology(): Promise<Topology>;
   refreshConnections(): Promise<void>;
   sendAudioFrame(payload: ProtocolAudioPayload): Promise<void>;
