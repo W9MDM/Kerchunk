@@ -33,6 +33,37 @@ export class AudioEngine {
     }
   }
 
+  /**
+   * Play the Motorola P25 talk-permit tone locally (operator sidetone only — not
+   * transmitted): 910 Hz 30 ms, gap 20 ms, 910 Hz 30 ms, gap 20 ms, 910 Hz 50 ms.
+   */
+  playTalkPermitTone(): void {
+    const ctx = this.context;
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    const beeps = [
+      { at: 0.0, dur: 0.03 },
+      { at: 0.05, dur: 0.03 },
+      { at: 0.1, dur: 0.05 },
+    ];
+    for (const beep of beeps) {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = 910;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      const t0 = now + beep.at;
+      const t1 = t0 + beep.dur;
+      gain.gain.setValueAtTime(0, t0);
+      gain.gain.linearRampToValueAtTime(0.22, t0 + 0.004);
+      gain.gain.setValueAtTime(0.22, t1 - 0.004);
+      gain.gain.linearRampToValueAtTime(0, t1);
+      osc.start(t0);
+      osc.stop(t1 + 0.005);
+    }
+  }
+
   async start(): Promise<void> {
     if (this.context) {
       await this.resume();
