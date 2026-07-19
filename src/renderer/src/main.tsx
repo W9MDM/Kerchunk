@@ -8,11 +8,11 @@ import './styles.css';
 // PTT overlay (loaded with a #overlay hash). Branch on the hash at boot.
 const isOverlay = window.location.hash === '#overlay';
 
-// The overlay window is frameless + transparent — clear the page background so
-// only the rounded PTT card shows (not a full-window rectangle).
+// The overlay is a solid dark frameless window; match the page to it so there's
+// no light flash or mismatched corners.
 if (isOverlay) {
-  document.documentElement.style.background = 'transparent';
-  document.body.style.background = 'transparent';
+  document.documentElement.style.background = '#171719';
+  document.body.style.background = '#171719';
 }
 
 ReactDOM.createRoot(document.getElementById('root')!).render(

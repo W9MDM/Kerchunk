@@ -18,7 +18,7 @@ export function Overlay() {
   const release = () => window.electronAPI.overlayPtt(false);
 
   return (
-    <div className="flex h-screen w-screen flex-col overflow-hidden rounded-2xl border border-white/15 bg-neutral-900/95 p-1.5 text-white shadow-2xl">
+    <div className="flex h-screen w-screen flex-col overflow-hidden bg-[#171719] p-1.5 text-white">
       {/* Drag strip — this whole bar moves the window (marked app-region: drag) */}
       <div
         className="flex items-center justify-between px-1 pb-1"
