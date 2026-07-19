@@ -43,4 +43,6 @@ export {
   faIdCard,
   faCircleInfo,
   faWandMagicSparkles,
+  faGripVertical,
+  faUpRightFromSquare,
 } from '@fortawesome/free-solid-svg-icons';

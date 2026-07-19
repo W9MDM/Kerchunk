@@ -16,6 +16,10 @@ export const IPC_CHANNELS = {
   PROTOCOL_TX_STOP: 'protocol:tx-stop',
   PROTOCOL_SET_HOTKEY: 'protocol:set-hotkey',
   PROTOCOL_PTT_HOTKEY: 'protocol:ptt-hotkey',
+  OVERLAY_SET_VISIBLE: 'overlay:set-visible',
+  OVERLAY_PTT: 'overlay:ptt',
+  OVERLAY_TX: 'overlay:tx',
+  OVERLAY_VISIBILITY: 'overlay:visibility',
   PROTOCOL_AUDIO_TX: 'protocol:audio-tx',
   PROTOCOL_AUDIO_RX: 'protocol:audio-rx',
   PROTOCOL_STATE: 'protocol:state',
@@ -117,6 +121,8 @@ export interface NodeSettings {
   closeToTray?: boolean;
   /** Launch Kerchunk automatically when you sign in. */
   launchOnStartup?: boolean;
+  /** Show the floating always-on-top PTT button over other apps. */
+  overlayEnabled?: boolean;
   /** Advanced mode: reveal direct-address linking and IAX link credentials. */
   advancedMode?: boolean;
   /** IAX username for direct links to a private node/hub (advanced). */
@@ -270,6 +276,16 @@ export interface KerchunkBridge {
   setHotkey(code: string): void;
   /** Global PTT hotkey was pressed (window unfocused). */
   onPttHotkey(callback: () => void): () => void;
+  /** Show/hide the floating always-on-top PTT overlay window. */
+  setOverlayVisible(visible: boolean): void;
+  /** Overlay renderer: PTT pressed (true) / released (false). */
+  overlayPtt(down: boolean): void;
+  /** Main window: the overlay's PTT button was pressed/released. */
+  onOverlayPtt(callback: (down: boolean) => void): () => void;
+  /** Overlay window: reflect the live transmit state on the button. */
+  onOverlayTx(callback: (on: boolean) => void): () => void;
+  /** Main window: the overlay's visibility changed (e.g. closed from itself). */
+  onOverlayVisibility(callback: (visible: boolean) => void): () => void;
   onProtocolAudio(callback: (payload: ProtocolAudioPayload) => void): () => void;
   onProtocolState(callback: (payload: ProtocolStatePayload) => void): () => void;
   onProtocolConnections(callback: (payload: ProtocolConnectionsPayload) => void): () => void;

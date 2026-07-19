@@ -53,9 +53,10 @@ across restarts.
   plus **saved commands** you can name and re-send with one tap.
 - **Voice announcements** — optional spoken connect / disconnect / call-failed
   events (off by default; enable under Settings → Audio).
-- **Push-to-talk** — on-screen hold-to-talk plus a global PTT hotkey that
-  supports **multi-key combos** (e.g. Ctrl+Shift+T), which register most
-  reliably for background/global PTT.
+- **Push-to-talk** — on-screen hold-to-talk, a global PTT hotkey that supports
+  **multi-key combos** (e.g. Ctrl+Shift+T), and a **floating PTT overlay** — a
+  small always-on-top button that hovers over any other application (toggle it
+  from the menu; drag it anywhere).
 - **Audio device selection** — pick your microphone and speaker in Settings → Audio.
 - **Network topology** — a live tree of the mesh you're linked into.
 - **Collapsible sections** — every panel minimizes (state remembered); the

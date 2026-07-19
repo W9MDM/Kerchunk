@@ -11,6 +11,7 @@ import {
   faBolt,
   faCircleCheck,
   faWandMagicSparkles,
+  faUpRightFromSquare,
 } from '../icons';
 
 interface AppMenuProps {
@@ -24,6 +25,8 @@ interface AppMenuProps {
   canDisconnect: boolean;
   advancedMode: boolean;
   onToggleAdvanced: () => void;
+  overlayEnabled: boolean;
+  onToggleOverlay: () => void;
 }
 
 /** In-app icon menu (hamburger → dropdown of icon actions). */
@@ -84,6 +87,14 @@ export function AppMenu(props: AppMenuProps) {
           {item(faRotate, 'Refresh network', props.onRefresh)}
           {item(faLinkSlash, 'Disconnect all', props.onDisconnectAll, !props.canDisconnect)}
           <div className="my-1 border-t border-border" />
+          {item(
+            faUpRightFromSquare,
+            <span className="flex flex-1 items-center justify-between gap-2">
+              Floating PTT
+              {props.overlayEnabled && <FontAwesomeIcon icon={faCircleCheck} className="text-primary" />}
+            </span>,
+            props.onToggleOverlay,
+          )}
           {item(
             faBolt,
             <span className="flex flex-1 items-center justify-between gap-2">

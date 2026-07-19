@@ -26,6 +26,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 let mainWindow: BrowserWindow | null = null;
+let overlayWindow: BrowserWindow | null = null;
 let protocolNode: KerchunkNode | null = null;
 let tray: Tray | null = null;
 let isQuitting = false;
@@ -63,6 +64,7 @@ interface Preferences {
   themeMode?: ThemeMode;
   nodeSettings?: NodeSettings;
   windowBounds?: WindowBounds;
+  overlayBounds?: WindowBounds;
 }
 
 function readPreferences(): Preferences {
@@ -247,6 +249,64 @@ function applyLoginItem(enabled: boolean) {
   }
 }
 
+/** Floating, always-on-top PTT button that hovers over other applications. */
+function createOverlay() {
+  if (overlayWindow) {
+    overlayWindow.show();
+    return;
+  }
+  const saved = readPreferences().overlayBounds;
+  overlayWindow = new BrowserWindow({
+    width: saved?.width ?? 150,
+    height: saved?.height ?? 98,
+    x: saved?.x,
+    y: saved?.y,
+    frame: false,
+    transparent: true,
+    resizable: false,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    fullscreenable: false,
+    minimizable: false,
+    maximizable: false,
+    hasShadow: false,
+    backgroundColor: '#00000000',
+    webPreferences: {
+      preload: path.join(__dirname, '../preload/index.cjs'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+  // Float above normal windows (and fullscreen apps where the OS allows it).
+  overlayWindow.setAlwaysOnTop(true, 'screen-saver');
+  overlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+
+  const rendererUrl = process.env.ELECTRON_RENDERER_URL;
+  if (rendererUrl) {
+    void overlayWindow.loadURL(`${rendererUrl}#overlay`);
+  } else {
+    overlayWindow
+      .loadFile(path.join(__dirname, '../renderer/index.html'), { hash: 'overlay' })
+      .catch((error) => logMain(`overlay load failed: ${String(error)}`));
+  }
+
+  overlayWindow.on('moved', () => {
+    if (!overlayWindow) return;
+    const { width, height, x, y } = overlayWindow.getBounds();
+    writePreferences({ ...readPreferences(), overlayBounds: { width, height, x, y } });
+  });
+  overlayWindow.on('closed', () => {
+    overlayWindow = null;
+  });
+}
+
+function destroyOverlay() {
+  if (overlayWindow) {
+    overlayWindow.destroy();
+    overlayWindow = null;
+  }
+}
+
 function broadcastTheme(mode: ThemeMode = readThemePreference()) {
   if (!mainWindow) {
     return;
@@ -415,6 +475,7 @@ app.whenReady().then(() => {
   createWindow();
   createTray();
   applyLoginItem(readNodeSettings().launchOnStartup ?? false);
+  if (readNodeSettings().overlayEnabled) createOverlay();
 
   ipcMain.handle(THEME_CHANNELS.GET_STATE, () => {
     const mode = readThemePreference();
@@ -586,10 +647,26 @@ app.whenReady().then(() => {
 
   ipcMain.on(IPC_CHANNELS.PROTOCOL_TX_START, () => {
     protocolNode?.notifyTransmitStart();
+    overlayWindow?.webContents.send(IPC_CHANNELS.OVERLAY_TX, true);
   });
 
   ipcMain.on(IPC_CHANNELS.PROTOCOL_TX_STOP, () => {
     protocolNode?.notifyTransmitStop();
+    overlayWindow?.webContents.send(IPC_CHANNELS.OVERLAY_TX, false);
+  });
+
+  // Floating PTT overlay: show/hide, and relay its button presses to the main
+  // window (which owns the microphone / audio engine).
+  ipcMain.on(IPC_CHANNELS.OVERLAY_SET_VISIBLE, (_event, visible: boolean) => {
+    if (visible) createOverlay();
+    else destroyOverlay();
+    // Persist here so the choice survives restarts regardless of the renderer.
+    writeNodeSettings({ ...readNodeSettings(), overlayEnabled: visible });
+    mainWindow?.webContents.send(IPC_CHANNELS.OVERLAY_VISIBILITY, visible);
+  });
+
+  ipcMain.on(IPC_CHANNELS.OVERLAY_PTT, (_event, down: boolean) => {
+    mainWindow?.webContents.send(IPC_CHANNELS.OVERLAY_PTT, down);
   });
 
   ipcMain.on(IPC_CHANNELS.PROTOCOL_SET_HOTKEY, (_event, code: string) => {
