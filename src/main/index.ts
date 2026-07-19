@@ -262,15 +262,15 @@ function createOverlay() {
     x: saved?.x,
     y: saved?.y,
     frame: false,
-    transparent: true,
     resizable: false,
     alwaysOnTop: true,
     skipTaskbar: true,
     fullscreenable: false,
     minimizable: false,
     maximizable: false,
-    hasShadow: false,
-    backgroundColor: '#00000000',
+    // Solid dark, frameless window (no transparency — avoids the white-corner
+    // artifact transparent windows show on Windows). Win11 rounds the corners.
+    backgroundColor: '#171719',
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.cjs'),
       contextIsolation: true,
