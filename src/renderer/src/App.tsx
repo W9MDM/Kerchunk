@@ -153,6 +153,7 @@ export default function App() {
   const [iaxSecret, setIaxSecret] = useState('');
   const [closeToTray, setCloseToTray] = useState(false);
   const [launchOnStartup, setLaunchOnStartup] = useState(false);
+  const [overlayEnabled, setOverlayEnabled] = useState(false);
   const ttsEnabledRef = useRef(false);
   const audioEngineRef = useRef<AudioEngine | null>(null);
   const didAutoLink = useRef(false);
@@ -206,6 +207,7 @@ export default function App() {
     iaxSecret,
     closeToTray,
     launchOnStartup,
+    overlayEnabled,
     ...overrides,
   });
 
@@ -267,6 +269,7 @@ export default function App() {
     if (settings.iaxSecret !== undefined) setIaxSecret(settings.iaxSecret);
     if (typeof settings.closeToTray === 'boolean') setCloseToTray(settings.closeToTray);
     if (typeof settings.launchOnStartup === 'boolean') setLaunchOnStartup(settings.launchOnStartup);
+    if (typeof settings.overlayEnabled === 'boolean') setOverlayEnabled(settings.overlayEnabled);
     if (settings.myNode) void window.electronAPI.getNodeInfo(settings.myNode).then(setSelfInfo);
   };
 
@@ -294,6 +297,10 @@ export default function App() {
       window.electronAPI.onProtocolDtmf((payload) => log(`DTMF from peer: ${payload.digit}`)),
       // Global hotkey (window unfocused) toggles transmit.
       window.electronAPI.onPttHotkey(() => handleTransmitRef.current(!transmittingRef.current)),
+      // Floating overlay PTT button: press/release → true hold-to-talk.
+      window.electronAPI.onOverlayPtt((down) => handleTransmitRef.current(down)),
+      // Keep the in-app toggle in sync if the overlay is closed from itself.
+      window.electronAPI.onOverlayVisibility((visible) => setOverlayEnabled(visible)),
     ];
     return () => disposers.forEach((dispose) => dispose());
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -731,6 +738,11 @@ export default function App() {
     setLaunchOnStartup(on);
     void persist({ launchOnStartup: on });
   };
+  const handleOverlayToggle = () => {
+    const next = !overlayEnabled;
+    setOverlayEnabled(next);
+    window.electronAPI.setOverlayVisible(next); // main shows/hides + persists
+  };
   const finishSetup = (values: Partial<NodeSettings>) => {
     applyLoadedSettings(values);
     void window.electronAPI.saveSettings(buildSettings({ ...values, setupComplete: true }));
@@ -909,6 +921,8 @@ export default function App() {
               canDisconnect={connections.length > 0}
               advancedMode={advancedMode}
               onToggleAdvanced={handleAdvancedToggle}
+              overlayEnabled={overlayEnabled}
+              onToggleOverlay={handleOverlayToggle}
             />
           </div>
         </header>

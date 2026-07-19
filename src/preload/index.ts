@@ -54,6 +54,11 @@ const electronAPI: KerchunkBridge = {
   txStop: () => ipcRenderer.send(IPC_CHANNELS.PROTOCOL_TX_STOP),
   setHotkey: (code: string) => ipcRenderer.send(IPC_CHANNELS.PROTOCOL_SET_HOTKEY, code),
   onPttHotkey: (callback: () => void) => subscribe(IPC_CHANNELS.PROTOCOL_PTT_HOTKEY, callback),
+  setOverlayVisible: (visible: boolean) => ipcRenderer.send(IPC_CHANNELS.OVERLAY_SET_VISIBLE, visible),
+  overlayPtt: (down: boolean) => ipcRenderer.send(IPC_CHANNELS.OVERLAY_PTT, down),
+  onOverlayPtt: (callback: (down: boolean) => void) => subscribe(IPC_CHANNELS.OVERLAY_PTT, callback),
+  onOverlayTx: (callback: (on: boolean) => void) => subscribe(IPC_CHANNELS.OVERLAY_TX, callback),
+  onOverlayVisibility: (callback: (visible: boolean) => void) => subscribe(IPC_CHANNELS.OVERLAY_VISIBILITY, callback),
   onProtocolAudio: (callback: (payload: ProtocolAudioPayload) => void) =>
     subscribe(IPC_CHANNELS.PROTOCOL_AUDIO_RX, callback),
   onProtocolState: (callback: (payload: ProtocolStatePayload) => void) =>
