@@ -12,6 +12,7 @@ import { SettingsModal } from './components/SettingsModal';
 import { NodeDirectory } from './components/NodeDirectory';
 import { DtmfPad } from './components/DtmfPad';
 import { AppMenu } from './components/AppMenu';
+import { VolumeControl } from './components/VolumeControl';
 import { SetupWizard } from './components/SetupWizard';
 import kerchunkIcon from './assets/kerchunk-icon.png';
 import { decodeG711Chunk } from '../../shared/audio';
@@ -154,6 +155,9 @@ export default function App() {
   const [closeToTray, setCloseToTray] = useState(false);
   const [launchOnStartup, setLaunchOnStartup] = useState(false);
   const [overlayEnabled, setOverlayEnabled] = useState(false);
+  const [outputVolume, setOutputVolume] = useState(100);
+  const [inputGain, setInputGain] = useState(100);
+  const [setupComplete, setSetupComplete] = useState(true);
   const ttsEnabledRef = useRef(false);
   const audioEngineRef = useRef<AudioEngine | null>(null);
   const didAutoLink = useRef(false);
@@ -208,6 +212,9 @@ export default function App() {
     closeToTray,
     launchOnStartup,
     overlayEnabled,
+    outputVolume,
+    inputGain,
+    setupComplete,
     ...overrides,
   });
 
@@ -270,6 +277,15 @@ export default function App() {
     if (typeof settings.closeToTray === 'boolean') setCloseToTray(settings.closeToTray);
     if (typeof settings.launchOnStartup === 'boolean') setLaunchOnStartup(settings.launchOnStartup);
     if (typeof settings.overlayEnabled === 'boolean') setOverlayEnabled(settings.overlayEnabled);
+    if (typeof settings.outputVolume === 'number') {
+      setOutputVolume(settings.outputVolume);
+      getAudioEngine().setOutputVolume(settings.outputVolume / 100);
+    }
+    if (typeof settings.inputGain === 'number') {
+      setInputGain(settings.inputGain);
+      getAudioEngine().setInputGain(settings.inputGain / 100);
+    }
+    setSetupComplete(Boolean(settings.setupComplete));
     if (settings.myNode) void window.electronAPI.getNodeInfo(settings.myNode).then(setSelfInfo);
   };
 
@@ -584,6 +600,16 @@ export default function App() {
     void getAudioEngine().setDevices(audioInput, deviceId);
     void persist({ audioOutput: deviceId });
   };
+  const handleOutputVolume = (v: number) => {
+    setOutputVolume(v);
+    getAudioEngine().setOutputVolume(v / 100);
+    void persist({ outputVolume: v });
+  };
+  const handleInputGain = (v: number) => {
+    setInputGain(v);
+    getAudioEngine().setInputGain(v / 100);
+    void persist({ inputGain: v });
+  };
 
   /** Register with AllStarLink if we haven't yet (best-effort, node mode). */
   const ensureRegistered = async () => {
@@ -745,6 +771,7 @@ export default function App() {
   };
   const finishSetup = (values: Partial<NodeSettings>) => {
     applyLoadedSettings(values);
+    setSetupComplete(true);
     void window.electronAPI.saveSettings(buildSettings({ ...values, setupComplete: true }));
     setSetupOpen(false);
     log('Setup complete.');
@@ -764,8 +791,9 @@ export default function App() {
     }
   };
   const skipSetup = () => {
+    setSetupComplete(true);
     setSetupOpen(false);
-    void persist({ setupComplete: true });
+    void window.electronAPI.saveSettings(buildSettings({ setupComplete: true }));
   };
 
   const handleExportSettings = async () => {
@@ -910,6 +938,7 @@ export default function App() {
                 Web TX
               </button>
             </div>
+            <VolumeControl value={outputVolume} onChange={handleOutputVolume} />
             <AppMenu
               onSettings={() => setSettingsOpen(true)}
               onDirectory={() => setDirectoryOpen(true)}
@@ -1154,6 +1183,10 @@ export default function App() {
         audioOutput={audioOutput}
         onAudioInputChange={handleAudioInputChange}
         onAudioOutputChange={handleAudioOutputChange}
+        outputVolume={outputVolume}
+        inputGain={inputGain}
+        onOutputVolumeChange={handleOutputVolume}
+        onInputGainChange={handleInputGain}
         advancedMode={advancedMode}
         iaxUser={iaxUser}
         iaxSecret={iaxSecret}

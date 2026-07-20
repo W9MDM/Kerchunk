@@ -31,6 +31,7 @@ export {
   faCircleCheck,
   faTriangleExclamation,
   faVolumeHigh,
+  faVolumeLow,
   faVolumeXmark,
   faChevronDown,
   faChevronRight,

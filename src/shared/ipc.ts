@@ -115,6 +115,10 @@ export interface NodeSettings {
   audioInput?: string;
   /** Selected speaker deviceId ('' / undefined = system default). */
   audioOutput?: string;
+  /** App output (speaker) volume, 0–100. Default 100. */
+  outputVolume?: number;
+  /** Microphone input level, 0–100. Default 100. */
+  inputGain?: number;
   /** True once the first-run setup wizard has been completed or skipped. */
   setupComplete?: boolean;
   /** Keep running in the tray when the window is closed (instead of quitting). */

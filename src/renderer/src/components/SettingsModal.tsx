@@ -107,6 +107,10 @@ interface SettingsModalProps {
   audioOutput: string;
   onAudioInputChange: (deviceId: string) => void;
   onAudioOutputChange: (deviceId: string) => void;
+  outputVolume: number;
+  inputGain: number;
+  onOutputVolumeChange: (v: number) => void;
+  onInputGainChange: (v: number) => void;
   advancedMode: boolean;
   iaxUser: string;
   iaxSecret: string;
@@ -384,6 +388,11 @@ export function SettingsModal(props: SettingsModalProps) {
                     </option>
                   ))}
                 </select>
+                <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
+                  <span>Input level</span>
+                  <span className="tabular-nums">{props.inputGain}%</span>
+                </div>
+                <input type="range" min={0} max={100} value={props.inputGain} onChange={(e) => props.onInputGainChange(Number(e.target.value))} className="w-full accent-primary" />
               </div>
               <div>
                 <h3 className={sectionLabel}>Speaker (output)</h3>
@@ -395,8 +404,13 @@ export function SettingsModal(props: SettingsModalProps) {
                     </option>
                   ))}
                 </select>
+                <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
+                  <span>Output volume</span>
+                  <span className="tabular-nums">{props.outputVolume}%</span>
+                </div>
+                <input type="range" min={0} max={100} value={props.outputVolume} onChange={(e) => props.onOutputVolumeChange(Number(e.target.value))} className="w-full accent-primary" />
                 {outputs.length === 0 && (
-                  <p className="mt-1.5 text-xs text-muted-foreground">Output selection isn't available on this system; playback uses the default device.</p>
+                  <p className="mt-1.5 text-xs text-muted-foreground">Device selection isn't available on this system; playback uses the default device.</p>
                 )}
               </div>
             </div>

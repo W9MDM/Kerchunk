@@ -21,11 +21,25 @@ export class AudioEngine {
   private source: MediaStreamAudioSourceNode | null = null;
   private worklet: AudioWorkletNode | null = null;
   private playback: AudioWorkletNode | null = null;
+  private outputGainNode: GainNode | null = null;
   private transmitting = false;
   private inputDeviceId = '';
   private outputDeviceId = '';
+  private outputVolume = 1;
+  private inputGain = 1;
 
   constructor(private readonly callbacks: AudioEngineCallbacks) {}
+
+  /** App output (speaker) volume, 0..1 — a master gain on RX playback. */
+  setOutputVolume(v: number): void {
+    this.outputVolume = Math.max(0, Math.min(1, v));
+    if (this.outputGainNode) this.outputGainNode.gain.value = this.outputVolume;
+  }
+
+  /** Microphone input level, 0..1 — scales captured TX audio. */
+  setInputGain(v: number): void {
+    this.inputGain = Math.max(0, Math.min(1, v));
+  }
 
   /** Choose the microphone / speaker devices (deviceId; '' = system default). */
   async setDevices(input: string, output: string): Promise<void> {
@@ -150,6 +164,9 @@ export class AudioEngine {
         return;
       }
       const frame = event.data;
+      if (this.inputGain !== 1) {
+        for (let i = 0; i < frame.length; i += 1) frame[i] *= this.inputGain;
+      }
       this.callbacks.onTxLevel(frameLevel(frame));
       const encoded = encodeG711Chunk(floatFrameToPcm16(frame));
       const copy = new Uint8Array(encoded);
@@ -160,15 +177,20 @@ export class AudioEngine {
     // operator does not hear their own microphone.
     source.connect(worklet);
 
-    // RX playback runs in its own worklet with a jitter buffer, fed by playFrame.
+    // RX playback runs in its own worklet with a jitter buffer, fed by playFrame,
+    // through a master gain node (app output volume).
     const playback = new AudioWorkletNode(context, 'kerchunk-playback');
-    playback.connect(context.destination);
+    const outputGain = context.createGain();
+    outputGain.gain.value = this.outputVolume;
+    playback.connect(outputGain);
+    outputGain.connect(context.destination);
 
     this.context = context;
     this.stream = stream;
     this.source = source;
     this.worklet = worklet;
     this.playback = playback;
+    this.outputGainNode = outputGain;
     if (this.outputDeviceId) await this.applyOutputDevice();
     await this.resume();
   }
@@ -211,6 +233,7 @@ export class AudioEngine {
     this.source = null;
     this.worklet = null;
     this.playback = null;
+    this.outputGainNode = null;
   }
 
   private async resume(): Promise<void> {
