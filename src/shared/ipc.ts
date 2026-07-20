@@ -19,6 +19,7 @@ export const IPC_CHANNELS = {
   OVERLAY_SET_VISIBLE: 'overlay:set-visible',
   OVERLAY_PTT: 'overlay:ptt',
   OVERLAY_TX: 'overlay:tx',
+  OVERLAY_RX: 'overlay:rx',
   OVERLAY_VISIBILITY: 'overlay:visibility',
   PROTOCOL_AUDIO_TX: 'protocol:audio-tx',
   PROTOCOL_AUDIO_RX: 'protocol:audio-rx',
@@ -111,6 +112,8 @@ export interface NodeSettings {
   pttMode?: 'hold' | 'toggle';
   /** Speak connect/disconnect/failure announcements (off by default). */
   ttsEnabled?: boolean;
+  /** Show desktop notifications for connect/disconnect/failure (off by default). */
+  notificationsEnabled?: boolean;
   /** Selected microphone deviceId ('' / undefined = system default). */
   audioInput?: string;
   /** Selected speaker deviceId ('' / undefined = system default). */
@@ -286,8 +289,12 @@ export interface KerchunkBridge {
   overlayPtt(down: boolean): void;
   /** Main window: the overlay's PTT button was pressed/released. */
   onOverlayPtt(callback: (down: boolean) => void): () => void;
+  /** Main window → overlay: RX (receiving audio) state changed. */
+  overlayRx(on: boolean): void;
   /** Overlay window: reflect the live transmit state on the button. */
   onOverlayTx(callback: (on: boolean) => void): () => void;
+  /** Overlay window: reflect the live receive state on the button. */
+  onOverlayRx(callback: (on: boolean) => void): () => void;
   /** Main window: the overlay's visibility changed (e.g. closed from itself). */
   onOverlayVisibility(callback: (visible: boolean) => void): () => void;
   onProtocolAudio(callback: (payload: ProtocolAudioPayload) => void): () => void;

@@ -35,6 +35,13 @@ Artifacts land in `release/`, named from the `version` in `package.json`
 `appVersion` fallback in `src/protocol/node.ts`, which is reported to AllStarLink
 as `apprptvers`), and keep these docs in step with the code.
 
+The `dist:*` scripts run through `scripts/dist.mjs`, which disables code-signing
+(`CSC_IDENTITY_AUTO_DISCOVERY=false` + cleared `CSC_*` env) so builds don't make
+the per-build network call (an RFC-3161 timestamp server) that a firewall blocks.
+`npmRebuild` is off (no native modules). Electron/NSIS binaries are cached after
+the first build; behind a strict firewall, allow `github.com` for that first
+download or pre-seed `%LOCALAPPDATA%\electron-builder\Cache`.
+
 ### Linux tarball on Windows
 
 electron-builder can't assemble the AppImage/`.deb` on Windows (`mksquashfs`
