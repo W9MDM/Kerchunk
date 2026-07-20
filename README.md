@@ -51,8 +51,8 @@ across restarts.
   talk-permit tone and adjustable level/preamble.
 - **DTMF commands** — a keypad and free-form sender for app_rpt `*` commands,
   plus **saved commands** you can name and re-send with one tap.
-- **Voice announcements** — optional spoken connect / disconnect / call-failed
-  events (off by default; enable under Settings → Audio).
+- **Announcements** — optional spoken and/or desktop-notification alerts for
+  connect / disconnect / call-failed events (off by default; Settings → Audio).
 - **Push-to-talk** — on-screen hold-to-talk, a global PTT hotkey that supports
   **multi-key combos** (e.g. Ctrl+Shift+T), and a **floating PTT overlay** — a
   small always-on-top button that hovers over any other application (toggle it

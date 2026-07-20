@@ -7,11 +7,15 @@ import { FontAwesomeIcon, faMicrophone, faXmark, faGripVertical } from '../icons
  */
 export function Overlay() {
   const [transmitting, setTransmitting] = useState(false);
+  const [receiving, setReceiving] = useState(false);
 
   useEffect(() => {
-    // Reflect the real transmit state (also covers hotkey / main-window PTT).
-    const dispose = window.electronAPI.onOverlayTx((on) => setTransmitting(on));
-    return dispose;
+    // Reflect the real transmit + receive state (also covers hotkey / main PTT).
+    const disposers = [
+      window.electronAPI.onOverlayTx((on) => setTransmitting(on)),
+      window.electronAPI.onOverlayRx((on) => setReceiving(on)),
+    ];
+    return () => disposers.forEach((d) => d());
   }, []);
 
   const press = () => window.electronAPI.overlayPtt(true);
@@ -24,8 +28,13 @@ export function Overlay() {
         className="flex items-center justify-between px-1 pb-1"
         style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
       >
-        <span className="flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-white/50">
+        <span className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wide text-white/50">
           <FontAwesomeIcon icon={faGripVertical} /> Kerchunk
+          {receiving && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-green-500/20 px-1.5 text-green-400" title="Receiving">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-green-400" /> RX
+            </span>
+          )}
         </span>
         <button
           onClick={() => window.electronAPI.setOverlayVisible(false)}

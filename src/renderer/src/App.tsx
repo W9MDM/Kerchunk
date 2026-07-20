@@ -99,6 +99,15 @@ function spellNode(label: string): string {
   return /^[0-9]+$/.test(label) ? label.split('').join(' ') : label;
 }
 
+/** Fire a desktop notification (best-effort; ignored if unavailable/denied). */
+function notify(title: string, body: string): void {
+  try {
+    if (typeof Notification !== 'undefined') new Notification(title, { body });
+  } catch {
+    // notifications unavailable — ignore
+  }
+}
+
 /** Recolor the accent (primary + focus ring) app-wide from a hex color. */
 function applyAccent(hex: string): void {
   const triple = hexToHslTriple(hex);
@@ -158,7 +167,9 @@ export default function App() {
   const [outputVolume, setOutputVolume] = useState(100);
   const [inputGain, setInputGain] = useState(100);
   const [setupComplete, setSetupComplete] = useState(true);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const ttsEnabledRef = useRef(false);
+  const notificationsEnabledRef = useRef(false);
   const audioEngineRef = useRef<AudioEngine | null>(null);
   const didAutoLink = useRef(false);
   const transmittingRef = useRef(false);
@@ -215,6 +226,7 @@ export default function App() {
     outputVolume,
     inputGain,
     setupComplete,
+    notificationsEnabled,
     ...overrides,
   });
 
@@ -263,6 +275,10 @@ export default function App() {
     if (typeof settings.ttsEnabled === 'boolean') {
       setTtsEnabled(settings.ttsEnabled);
       ttsEnabledRef.current = settings.ttsEnabled;
+    }
+    if (typeof settings.notificationsEnabled === 'boolean') {
+      setNotificationsEnabled(settings.notificationsEnabled);
+      notificationsEnabledRef.current = settings.notificationsEnabled;
     }
     if (settings.audioInput !== undefined) setAudioInput(settings.audioInput);
     if (settings.audioOutput !== undefined) setAudioOutput(settings.audioOutput);
@@ -463,15 +479,16 @@ export default function App() {
     const prevUp = prevUpRef.current;
     // Bookkeeping runs regardless; only the spoken cue is gated on the TTS setting
     // (so turning TTS on later doesn't replay a backlog of past events).
-    const say = (text: string) => {
-      if (ttsEnabledRef.current) speak(text);
+    const announce = (spoken: string, title: string, body: string) => {
+      if (ttsEnabledRef.current) speak(spoken);
+      if (notificationsEnabledRef.current) notify(title, body);
     };
     if (prevAll && prevUp) {
-      for (const label of upNow) if (!prevUp.has(label)) say(`Connected to ${spellNode(label)}`);
+      for (const label of upNow) if (!prevUp.has(label)) announce(`Connected to ${spellNode(label)}`, 'Kerchunk', `Connected to ${label}`);
       for (const label of prevAll) {
         if (allNow.has(label)) continue;
-        if (prevUp.has(label)) say(`${spellNode(label)} disconnected`);
-        else say(`Call to ${spellNode(label)} failed`);
+        if (prevUp.has(label)) announce(`${spellNode(label)} disconnected`, 'Kerchunk', `${label} disconnected`);
+        else announce(`Call to ${spellNode(label)} failed`, 'Kerchunk', `Call to ${label} failed`);
       }
     }
     prevConnRef.current = allNow;
@@ -589,6 +606,21 @@ export default function App() {
     setTtsEnabled(on);
     ttsEnabledRef.current = on;
     void persist({ ttsEnabled: on });
+  };
+  const handleNotificationsToggle = (on: boolean) => {
+    setNotificationsEnabled(on);
+    notificationsEnabledRef.current = on;
+    if (on) notify('Kerchunk', 'Desktop notifications enabled.');
+    void persist({ notificationsEnabled: on });
+  };
+  /** Mic test: start the audio engine and route the mic to the speaker (sidetone). */
+  const handleMicTest = async (on: boolean) => {
+    try {
+      if (on) await getAudioEngine().start();
+      getAudioEngine().setMonitor(on);
+    } catch {
+      log('Could not start the microphone for testing.');
+    }
   };
   const handleAudioInputChange = (deviceId: string) => {
     setAudioInput(deviceId);
@@ -891,6 +923,11 @@ export default function App() {
   const hasNodeCreds = Boolean(myNode.trim() && secret);
   const hasGuestCreds = Boolean(callsign.trim() && wtPassword);
 
+  // Mirror the receive state onto the floating overlay's RX indicator.
+  useEffect(() => {
+    if (overlayEnabled) window.electronAPI.overlayRx(receiving);
+  }, [receiving, overlayEnabled]);
+
   /** A mode's credentials are missing — nudge the operator to Settings. */
   const openCredsHint = (which: 'node' | 'guest') => {
     log(
@@ -1179,6 +1216,9 @@ export default function App() {
         onPttModeChange={handlePttModeChange}
         ttsEnabled={ttsEnabled}
         onTtsToggle={handleTtsToggle}
+        notificationsEnabled={notificationsEnabled}
+        onNotificationsToggle={handleNotificationsToggle}
+        onMicTest={(on) => void handleMicTest(on)}
         audioInput={audioInput}
         audioOutput={audioOutput}
         onAudioInputChange={handleAudioInputChange}

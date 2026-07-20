@@ -22,6 +22,7 @@ export class AudioEngine {
   private worklet: AudioWorkletNode | null = null;
   private playback: AudioWorkletNode | null = null;
   private outputGainNode: GainNode | null = null;
+  private monitorGain: GainNode | null = null;
   private transmitting = false;
   private inputDeviceId = '';
   private outputDeviceId = '';
@@ -39,6 +40,28 @@ export class AudioEngine {
   /** Microphone input level, 0..1 — scales captured TX audio. */
   setInputGain(v: number): void {
     this.inputGain = Math.max(0, Math.min(1, v));
+  }
+
+  /** Mic test / sidetone: route the microphone to the speaker so you hear yourself. */
+  setMonitor(on: boolean): void {
+    const ctx = this.context;
+    if (!ctx || !this.source) return;
+    if (on) {
+      if (this.monitorGain) return;
+      const gain = ctx.createGain();
+      gain.gain.value = 1;
+      this.source.connect(gain);
+      gain.connect(ctx.destination);
+      this.monitorGain = gain;
+    } else if (this.monitorGain) {
+      try {
+        this.source.disconnect(this.monitorGain);
+      } catch {
+        // edge may already be gone
+      }
+      this.monitorGain.disconnect();
+      this.monitorGain = null;
+    }
   }
 
   /** Choose the microphone / speaker devices (deviceId; '' = system default). */
@@ -234,6 +257,7 @@ export class AudioEngine {
     this.worklet = null;
     this.playback = null;
     this.outputGainNode = null;
+    this.monitorGain = null;
   }
 
   private async resume(): Promise<void> {

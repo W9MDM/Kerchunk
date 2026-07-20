@@ -103,6 +103,9 @@ interface SettingsModalProps {
   onPttModeChange: (mode: 'hold' | 'toggle') => void;
   ttsEnabled: boolean;
   onTtsToggle: (on: boolean) => void;
+  notificationsEnabled: boolean;
+  onNotificationsToggle: (on: boolean) => void;
+  onMicTest: (on: boolean) => void;
   audioInput: string;
   audioOutput: string;
   onAudioInputChange: (deviceId: string) => void;
@@ -151,6 +154,16 @@ export function SettingsModal(props: SettingsModalProps) {
   const [capturing, setCapturing] = useState(false);
   const [inputs, setInputs] = useState<MediaDeviceInfo[]>([]);
   const [outputs, setOutputs] = useState<MediaDeviceInfo[]>([]);
+  const [testingMic, setTestingMic] = useState(false);
+
+  // Stop the mic-test sidetone whenever we leave the Audio tab or close Settings.
+  const { onMicTest } = props;
+  useEffect(() => {
+    if ((tab !== 'audio' || !open) && testingMic) {
+      onMicTest(false);
+      setTestingMic(false);
+    }
+  }, [tab, open, testingMic, onMicTest]);
 
   useEffect(() => {
     if (!open) return;
@@ -372,11 +385,17 @@ export function SettingsModal(props: SettingsModalProps) {
           {tab === 'audio' && (
             <div className="space-y-5">
               <div>
-                <h3 className={sectionLabel}>Voice announcements</h3>
-                <label className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <input type="checkbox" checked={props.ttsEnabled} onChange={(e) => props.onTtsToggle(e.target.checked)} />
-                  Speak connect / disconnect / call-failed events
-                </label>
+                <h3 className={sectionLabel}>Announcements</h3>
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <input type="checkbox" checked={props.ttsEnabled} onChange={(e) => props.onTtsToggle(e.target.checked)} />
+                    Speak connect / disconnect / call-failed events
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <input type="checkbox" checked={props.notificationsEnabled} onChange={(e) => props.onNotificationsToggle(e.target.checked)} />
+                    Show desktop notifications for those events
+                  </label>
+                </div>
               </div>
               <div>
                 <h3 className={sectionLabel}>Microphone (input)</h3>
@@ -393,6 +412,17 @@ export function SettingsModal(props: SettingsModalProps) {
                   <span className="tabular-nums">{props.inputGain}%</span>
                 </div>
                 <input type="range" min={0} max={100} value={props.inputGain} onChange={(e) => props.onInputGainChange(Number(e.target.value))} className="w-full accent-primary" />
+                <button
+                  onClick={() => {
+                    const next = !testingMic;
+                    setTestingMic(next);
+                    props.onMicTest(next);
+                  }}
+                  className={`mt-2 w-full rounded-lg border px-3 py-1.5 text-xs font-medium transition ${testingMic ? 'border-tx bg-tx/10 text-tx' : 'border-border hover:bg-accent'}`}
+                >
+                  {testingMic ? 'Stop mic test' : 'Test microphone (hear yourself)'}
+                </button>
+                {testingMic && <p className="mt-1.5 text-xs text-warning">Use headphones to avoid feedback.</p>}
               </div>
               <div>
                 <h3 className={sectionLabel}>Speaker (output)</h3>
