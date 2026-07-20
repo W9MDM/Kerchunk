@@ -57,7 +57,9 @@ across restarts.
   **multi-key combos** (e.g. Ctrl+Shift+T), and a **floating PTT overlay** — a
   small always-on-top button that hovers over any other application (toggle it
   from the menu; drag it anywhere).
-- **Audio device selection** — pick your microphone and speaker in Settings → Audio.
+- **Audio device selection & levels** — pick your microphone and speaker and set
+  input/output levels in Settings → Audio, plus a speaker button in the header for
+  quick app-volume control.
 - **Network topology** — a live tree of the mesh you're linked into.
 - **Collapsible sections** — every panel minimizes (state remembered); the
   Transmit panel keeps a compact PTT button even when collapsed.
