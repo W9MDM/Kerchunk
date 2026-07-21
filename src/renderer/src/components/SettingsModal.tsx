@@ -130,13 +130,13 @@ interface SettingsModalProps {
   mdcTiming: 'start' | 'end' | 'both';
   mdcLevel: number;
   mdcPreamble: number;
-  tpt: 'aps' | 'trbo';
+  tpt: 'aps' | 'trbo' | 'trbo-enc';
   onMdcEnabledChange: (on: boolean) => void;
   onMdcUnitIdChange: (id: string) => void;
   onMdcTimingChange: (t: 'start' | 'end' | 'both') => void;
   onMdcLevelChange: (level: number) => void;
   onMdcPreambleChange: (bytes: number) => void;
-  onTptChange: (t: 'aps' | 'trbo') => void;
+  onTptChange: (t: 'aps' | 'trbo' | 'trbo-enc') => void;
   savedNodes: SavedNode[];
   linkedNumbers: Set<string>;
   keyedNumbers: Set<string>;
@@ -483,18 +483,24 @@ export function SettingsModal(props: SettingsModalProps) {
                   </div>
                   <div>
                     <div className="mb-1 text-xs text-muted-foreground">Talk-permit tone (local sidetone on key-up)</div>
-                    <div className="flex rounded-lg bg-muted p-0.5 text-sm">
+                    <div className="flex rounded-lg bg-muted p-0.5 text-xs">
                       {([
                         { v: 'aps', l: 'APS TPT' },
                         { v: 'trbo', l: 'Trbo TPT' },
+                        { v: 'trbo-enc', l: 'Trbo Enc' },
                       ] as const).map((o) => (
-                        <button key={o.v} onClick={() => props.onTptChange(o.v)} className={`flex-1 rounded-md px-3 py-1.5 font-medium transition ${props.tpt === o.v ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
+                        <button key={o.v} onClick={() => props.onTptChange(o.v)} className={`flex-1 rounded-md px-2 py-1.5 font-medium transition ${props.tpt === o.v ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
                           {o.l}
                         </button>
                       ))}
                     </div>
                     <p className="mt-1 text-[11px] text-muted-foreground">
-                      {props.tpt === 'trbo' ? 'MotoTRBO: 1570 · 1050 · 1570 · 1320 Hz, 40 ms each.' : 'APS/P25: 910 Hz — 30 ms · 30 ms · 50 ms.'} Plays on key-up (start/both).
+                      {props.tpt === 'aps'
+                        ? 'APS/P25: 910 Hz — 30 ms · 30 ms · 50 ms.'
+                        : props.tpt === 'trbo-enc'
+                        ? 'MotoTRBO encrypted: 1570 · 1050 · 1570 · 1320 Hz, 40 ms each.'
+                        : 'MotoTRBO: 1570 · 1050 · 1570 · 1320 Hz, 40 ms each.'}{' '}
+                      Plays on key-up (start/both).
                     </p>
                   </div>
                   <p className="text-xs text-muted-foreground">

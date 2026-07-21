@@ -152,7 +152,7 @@ export default function App() {
   const [mdcTiming, setMdcTiming] = useState<'start' | 'end' | 'both'>('start');
   const [mdcLevel, setMdcLevel] = useState(52);
   const [mdcPreamble, setMdcPreamble] = useState(24);
-  const [tpt, setTpt] = useState<'aps' | 'trbo'>('aps');
+  const [tpt, setTpt] = useState<'aps' | 'trbo' | 'trbo-enc'>('aps');
   const [heardMdc, setHeardMdc] = useState<string | null>(null);
   const [ttsEnabled, setTtsEnabled] = useState(false);
   const [audioInput, setAudioInput] = useState('');
@@ -861,7 +861,7 @@ export default function App() {
     setMdcPreamble(bytes);
     void persist({ mdcPreamble: bytes });
   };
-  const handleTptChange = (next: 'aps' | 'trbo') => {
+  const handleTptChange = (next: 'aps' | 'trbo' | 'trbo-enc') => {
     setTpt(next);
     void persist({ tpt: next });
     // Preview the selected tone so the choice is audible.
