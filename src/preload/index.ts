@@ -61,6 +61,15 @@ const electronAPI: KerchunkBridge = {
   onOverlayTx: (callback: (on: boolean) => void) => subscribe(IPC_CHANNELS.OVERLAY_TX, callback),
   onOverlayRx: (callback: (on: boolean) => void) => subscribe(IPC_CHANNELS.OVERLAY_RX, callback),
   onOverlayVisibility: (callback: (visible: boolean) => void) => subscribe(IPC_CHANNELS.OVERLAY_VISIBILITY, callback),
+  checkForUpdate: (manual: boolean) => ipcRenderer.send(IPC_CHANNELS.UPDATE_CHECK, manual),
+  downloadUpdate: () => ipcRenderer.send(IPC_CHANNELS.UPDATE_DOWNLOAD),
+  installUpdate: () => ipcRenderer.send(IPC_CHANNELS.UPDATE_INSTALL),
+  openExternal: (url: string) => ipcRenderer.send(IPC_CHANNELS.OPEN_EXTERNAL, url),
+  onUpdateAvailable: (callback) => subscribe(IPC_CHANNELS.UPDATE_AVAILABLE, callback),
+  onUpdateNone: (callback) => subscribe(IPC_CHANNELS.UPDATE_NONE, callback),
+  onUpdateProgress: (callback) => subscribe(IPC_CHANNELS.UPDATE_PROGRESS, callback),
+  onUpdateDownloaded: (callback) => subscribe(IPC_CHANNELS.UPDATE_DOWNLOADED, callback),
+  onUpdateError: (callback) => subscribe(IPC_CHANNELS.UPDATE_ERROR, callback),
   onProtocolAudio: (callback: (payload: ProtocolAudioPayload) => void) =>
     subscribe(IPC_CHANNELS.PROTOCOL_AUDIO_RX, callback),
   onProtocolState: (callback: (payload: ProtocolStatePayload) => void) =>

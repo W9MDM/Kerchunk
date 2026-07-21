@@ -1,6 +1,6 @@
 {
   "name": "kerchunk",
-  "version": "0.9.14",
+  "version": "0.9.15",
   "private": true,
   "description": "A self-contained AllStarLink-style node for the desktop — link to nodes, conference audio, and talk with push-to-talk. Includes Web Transceiver guest mode.",
   "author": "W9MDM",
@@ -28,6 +28,7 @@
     "@fortawesome/free-brands-svg-icons": "^7.3.1",
     "@fortawesome/free-solid-svg-icons": "^7.3.1",
     "@fortawesome/react-fontawesome": "^3.4.0",
+    "electron-updater": "^6.8.9",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
@@ -57,6 +58,13 @@
     "copyright": "Copyright © 2026 W9MDM",
     "npmRebuild": false,
     "compression": "maximum",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "W9MDM",
+        "repo": "Kerchunk"
+      }
+    ],
     "directories": {
       "output": "release",
       "buildResources": "build"

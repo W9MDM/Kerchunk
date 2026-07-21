@@ -22,6 +22,7 @@ interface AppMenuProps {
   onDisconnectAll: () => void;
   onAbout: () => void;
   onSetupWizard: () => void;
+  onCheckUpdates: () => void;
   canDisconnect: boolean;
   advancedMode: boolean;
   onToggleAdvanced: () => void;
@@ -105,6 +106,7 @@ export function AppMenu(props: AppMenuProps) {
           )}
           {item(faGear, 'Settings', props.onSettings)}
           {item(faWandMagicSparkles, 'Setup wizard', props.onSetupWizard)}
+          {item(faRotate, 'Check for updates', props.onCheckUpdates)}
           {item(faCircleInfo, 'About Kerchunk', props.onAbout)}
         </div>
       )}

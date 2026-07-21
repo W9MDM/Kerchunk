@@ -68,8 +68,11 @@ across restarts.
 - **Network topology** — a live tree of the mesh you're linked into.
 - **Collapsible sections** — every panel minimizes (state remembered); the
   Transmit panel keeps a compact PTT button even when collapsed.
+- **Auto-update** — checks GitHub Releases on launch (and on demand from the
+  menu), shows the changelog, and can download + install the update in place
+  (NSIS installer and AppImage; Portable/`.deb` get a download link instead).
 - **In-app menu** — a Font Awesome menu (directory, register, refresh,
-  disconnect all, advanced mode, settings, about).
+  disconnect all, advanced mode, check for updates, settings, about).
 - **Runs in the background** — optional system-tray icon with close-to-tray and
   launch-at-startup (Settings → General).
 - **Backup / migrate** — export and import your settings and saved nodes as JSON
