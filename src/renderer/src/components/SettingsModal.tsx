@@ -132,12 +132,14 @@ interface SettingsModalProps {
   mdcLevel: number;
   mdcPreamble: number;
   tpt: string;
+  tptEnabled: boolean;
   onMdcEnabledChange: (on: boolean) => void;
   onMdcUnitIdChange: (id: string) => void;
   onMdcTimingChange: (t: 'start' | 'end' | 'both') => void;
   onMdcLevelChange: (level: number) => void;
   onMdcPreambleChange: (bytes: number) => void;
   onTptChange: (t: string) => void;
+  onTptEnabledChange: (on: boolean) => void;
   savedNodes: SavedNode[];
   linkedNumbers: Set<string>;
   keyedNumbers: Set<string>;
@@ -482,19 +484,6 @@ export function SettingsModal(props: SettingsModalProps) {
                     </div>
                     <input type="range" min={7} max={64} value={props.mdcPreamble} onChange={(e) => props.onMdcPreambleChange(Number(e.target.value))} className="w-full accent-primary" />
                   </div>
-                  <div>
-                    <div className="mb-1 text-xs text-muted-foreground">Talk-permit tone (local sidetone on key-up)</div>
-                    <select value={props.tpt} onChange={(e) => props.onTptChange(e.target.value)} className={inputClass}>
-                      {TPT_DEFS.map((d) => (
-                        <option key={d.id} value={d.id}>
-                          {d.label}
-                        </option>
-                      ))}
-                    </select>
-                    <p className="mt-1 text-[11px] text-muted-foreground">
-                      Plays on key-up (start/both). Selecting one previews it.
-                    </p>
-                  </div>
                   <p className="text-xs text-muted-foreground">
                     Sends your Motorola MDC1200 unit ID as a data burst {props.mdcTiming === 'both' ? 'at the start and end of' : props.mdcTiming === 'end' ? 'at the end of' : 'at the start of'} each transmission.
                   </p>
@@ -502,6 +491,27 @@ export function SettingsModal(props: SettingsModalProps) {
               ) : (
                 <p className="text-sm text-muted-foreground">Transmit your Motorola MDC1200 unit ID as a data burst on PTT. Enable to configure.</p>
               )}
+
+              {/* Talk-permit tone — a local sidetone on key-up, independent of MDC. */}
+              <div className="mt-5 border-t border-border pt-4">
+                <div className="mb-2 flex items-center justify-between">
+                  <h3 className={sectionLabel + ' mb-0'}>Talk-permit tone</h3>
+                  <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <input type="checkbox" checked={props.tptEnabled} onChange={(e) => props.onTptEnabledChange(e.target.checked)} />
+                    Play on key-up
+                  </label>
+                </div>
+                <select value={props.tpt} onChange={(e) => props.onTptChange(e.target.value)} className={inputClass}>
+                  {TPT_DEFS.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.label}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  A local sidetone played when you key up — no radio/MDC required. Also plays when MDC is set to key-up/both. Selecting one previews it.
+                </p>
+              </div>
             </div>
           )}
 
