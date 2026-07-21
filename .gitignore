@@ -12,3 +12,6 @@ electron.vite.config.*.mjs
 
 # Stray nested repo copy (not part of the project)
 kerchunk/
+
+# Reference tone clips (source material, not shipped)
+TPT/
