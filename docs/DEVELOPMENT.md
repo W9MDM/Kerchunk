@@ -92,3 +92,15 @@ are tag-triggered; the GitHub one is guarded with `if: github.server_url ==
 > **Testing the packaged Windows exe:** if `ELECTRON_RUN_AS_NODE=1` is set in the
 > shell, the built exe launches as a bare Node process and looks broken. Clear it
 > first: `Remove-Item Env:ELECTRON_RUN_AS_NODE` (PowerShell).
+
+## Download stats
+
+The README shows live download-count badges (shields.io, GitHub). For per-asset
+detail — GitHub's web UI no longer displays it — run:
+
+```bash
+npm run downloads                 # GitHub W9MDM/Kerchunk (set GH_TOKEN if private)
+node scripts/downloads.mjs --gitea https://git.nsccommunications.com PCARC/kerchunk
+```
+
+Both read `download_count` from each release asset via the API and print totals.
