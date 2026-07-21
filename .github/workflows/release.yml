@@ -55,16 +55,16 @@ jobs:
             release/*.yml
             release/*.blockmap
           if-no-files-found: ignore
-      # TNARA-branded Windows installers (separate product) → release-tnara/
-      - name: Package TNARA (Windows)
+      # TARA-branded Windows installers (separate product) → release-tara/
+      - name: Package TARA (Windows)
         if: matrix.os == 'windows-latest'
-        run: node scripts/dist-tnara.mjs
+        run: npm run dist:tara
       - uses: actions/upload-artifact@v5
         if: matrix.os == 'windows-latest'
         with:
-          name: tnara
+          name: tara
           path: |
-            release-tnara/*.exe
+            release-tara/*.exe
           if-no-files-found: ignore
 
   release:

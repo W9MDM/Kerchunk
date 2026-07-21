@@ -16,13 +16,16 @@ import { VolumeControl } from './components/VolumeControl';
 import { SetupWizard } from './components/SetupWizard';
 import { UpdateBanner } from './components/UpdateBanner';
 import kerchunkIcon from './assets/kerchunk-icon.png';
-import tnaraIcon from './assets/tnara-icon.png';
+import taraIcon from './assets/tara-icon.png';
 import { decodeG711Chunk } from '../../shared/audio';
 import { DEFAULT_TPT } from '../../shared/tpt';
 import { BRAND } from '../../shared/brand';
 
+/** Injected by electron-vite `define` (see electron.vite.config.ts). */
+declare const __APP_VERSION__: string;
+
 /** Per-build brand logo. */
-const brandLogo = BRAND.id === 'tnara' ? tnaraIcon : kerchunkIcon;
+const brandLogo = BRAND.id === 'tara' ? taraIcon : kerchunkIcon;
 import MdcDecoderWorker from './audio/mdcDecoder.worker?worker';
 import { FontAwesomeIcon, faTowerBroadcast, faMicrophone, faMagnifyingGlass, faFloppyDisk } from './icons';
 
@@ -154,7 +157,7 @@ export default function App() {
   const [updateDownloaded, setUpdateDownloaded] = useState(false);
   const [keyedNumbers, setKeyedNumbers] = useState<Set<string>>(new Set());
   const [uiScale, setUiScale] = useState(0.75);
-  const [accent, setAccent] = useState('#007aff');
+  const [accent, setAccent] = useState(BRAND.accent ?? '#007aff');
   const [pttKey, setPttKey] = useState('');
   const [pttMode, setPttMode] = useState<'hold' | 'toggle'>('hold');
   const [mdcEnabled, setMdcEnabled] = useState(false);
@@ -273,9 +276,11 @@ export default function App() {
       setUiScale(settings.uiScale);
       void window.electronAPI.setZoom(settings.uiScale);
     }
-    if (settings.accent) {
-      setAccent(settings.accent);
-      applyAccent(settings.accent);
+    // Use the operator's saved accent, else this build's brand accent (TARA navy).
+    const accentToUse = settings.accent ?? BRAND.accent;
+    if (accentToUse) {
+      setAccent(accentToUse);
+      applyAccent(accentToUse);
     }
     if (settings.pttKey !== undefined) {
       setPttKey(settings.pttKey);
@@ -996,7 +1001,7 @@ export default function App() {
   };
 
   const handleAbout = () => {
-    log('Kerchunk — self-contained AllStarLink desktop node · © 2026 W9MDM · PolyForm Noncommercial License (no selling).');
+    log(`${BRAND.name} v${__APP_VERSION__} — self-contained AllStarLink desktop node · © 2026 W9MDM · PolyForm Noncommercial License (no selling).`);
   };
 
   return (
