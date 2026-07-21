@@ -146,8 +146,8 @@ export interface NodeSettings {
   mdcLevel?: number;
   /** MDC1200 preamble length in 0x55 bytes. */
   mdcPreamble?: number;
-  /** Local talk-permit tone played on key-up: APS/P25 or MotoTRBO. */
-  tpt?: 'aps' | 'trbo';
+  /** Local talk-permit tone played on key-up: APS/P25, MotoTRBO, or MotoTRBO encrypted. */
+  tpt?: 'aps' | 'trbo' | 'trbo-enc';
   /** Last-used connection mode: real node vs. Web Transceiver guest. */
   mode?: 'node' | 'guest';
 }
