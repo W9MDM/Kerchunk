@@ -949,7 +949,7 @@ export default function App() {
   };
 
   const handleAbout = () => {
-    log('Kerchunk — self-contained AllStarLink desktop node · © 2026 W9MDM · MIT License.');
+    log('Kerchunk — self-contained AllStarLink desktop node · © 2026 W9MDM · PolyForm Noncommercial License (no selling).');
   };
 
   return (
@@ -1197,7 +1197,7 @@ export default function App() {
         <MemoActivityLog entries={activity} />
 
         <footer className="pb-2 text-center text-xs text-muted-foreground">
-          Kerchunk — Copyright © 2026 W9MDM · MIT License · Not affiliated with AllStarLink
+          Kerchunk — Copyright © 2026 W9MDM · Noncommercial License · Not affiliated with AllStarLink
         </footer>
       </div>
 

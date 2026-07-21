@@ -4,7 +4,8 @@ Kerchunk is a native, cross-platform desktop client for operating a full AllStar
 
 The project is independent and is not affiliated with or endorsed by AllStarLink, Inc.
 
-Copyright © 2026 W9MDM. Released under the MIT License (see [LICENSE](./LICENSE)).
+Copyright © 2026 W9MDM. Released under the [PolyForm Noncommercial License 1.0.0](./LICENSE)
+— free to use, modify, and share for any noncommercial purpose; **selling it is not permitted**.
 
 ## Install (Windows)
 
@@ -148,6 +149,8 @@ Build artifacts land in `release/`. The app icon is generated into
 
 ## License
 
-Kerchunk is copyright © 2026 W9MDM and released under the MIT License. See
-[LICENSE](./LICENSE) for the full text and [THIRD-PARTY-NOTICES.md](./THIRD-PARTY-NOTICES.md)
-for the open-source components it builds on.
+Kerchunk is copyright © 2026 W9MDM and released under the **PolyForm Noncommercial
+License 1.0.0**: you may use, modify, and share it for any noncommercial purpose,
+but you may **not sell it** or use it commercially. See [LICENSE](./LICENSE) for
+the full text and [THIRD-PARTY-NOTICES.md](./THIRD-PARTY-NOTICES.md) for the
+open-source components it builds on (which keep their own permissive licenses).

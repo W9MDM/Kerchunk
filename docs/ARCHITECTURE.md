@@ -36,7 +36,7 @@ The main process is a thin adapter: it instantiates one `KerchunkNode`, forwards
 
 Microphone capture runs through an AudioWorklet (`src/renderer/public/kerchunk-capture-worklet.js`) that buffers the browser's 128-sample render quanta into fixed 8 kHz / 20 ms (160-sample) frames. The main-thread `AudioEngine` (`src/renderer/src/audio/engine.ts`) G.711-encodes each frame and hands it to the bridge; inbound frames are decoded and scheduled back-to-back for gap-free playback (`kerchunk-playback-worklet.js`). The pure framing logic is factored into `framing.ts` so it can be unit tested without Web Audio.
 
-Inbound MDC1200 decoding runs in a Web Worker (`src/renderer/src/audio/mdcDecoder.worker.ts`) so its brute-force burst search never blocks the main thread (which would starve the mic handoff). The MDC1200 encoder/decoder itself lives in `src/shared/mdc1200.ts` (clean-room MIT implementation).
+Inbound MDC1200 decoding runs in a Web Worker (`src/renderer/src/audio/mdcDecoder.worker.ts`) so its brute-force burst search never blocks the main thread (which would starve the mic handoff). The MDC1200 encoder/decoder itself lives in `src/shared/mdc1200.ts` (clean-room original implementation — not derived from the GPL atmatthewat code).
 
 ## Node directory
 
