@@ -55,6 +55,9 @@ jobs:
         run: npx electron-builder --linux --win --publish never
 
       - name: Publish Gitea release
+        # Force bash — the runner's default shell is /bin/sh (dash), which lacks
+        # `shopt`. The builder:wine image ships bash.
+        shell: bash
         env:
           # Gitea injects an automatic, repo-scoped token. If release creation
           # fails with 403, create a repo/org secret RELEASE_TOKEN (a Gitea access
@@ -90,6 +93,7 @@ jobs:
 
           shopt -s nullglob
           for f in release/*.exe release/*.AppImage release/*.deb; do
+            [ -e "$f" ] || continue
             echo "Uploading $(basename "$f")"
             curl -s -f -X POST \
               "$API/repos/$REPO/releases/$rel_id/assets?name=$(basename "$f")" \
