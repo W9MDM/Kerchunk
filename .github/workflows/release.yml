@@ -33,10 +33,10 @@ jobs:
             args: --linux AppImage deb
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
       - run: npm ci
       - run: npm run build
@@ -45,7 +45,7 @@ jobs:
           # Unsigned builds — skip signing so nothing contacts a timestamp server.
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
         run: npx electron-builder ${{ matrix.args }} --publish never
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: ${{ matrix.os }}
           path: |
@@ -61,7 +61,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           path: artifacts
       - uses: softprops/action-gh-release@v2
