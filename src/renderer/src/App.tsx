@@ -152,7 +152,7 @@ export default function App() {
   const [mdcTiming, setMdcTiming] = useState<'start' | 'end' | 'both'>('start');
   const [mdcLevel, setMdcLevel] = useState(52);
   const [mdcPreamble, setMdcPreamble] = useState(24);
-  const [tpt, setTpt] = useState<'aps' | 'trbo' | 'trbo-enc'>('aps');
+  const [tpt, setTpt] = useState<'apx' | 'trbo' | 'trbo-enc'>('apx');
   const [heardMdc, setHeardMdc] = useState<string | null>(null);
   const [ttsEnabled, setTtsEnabled] = useState(false);
   const [audioInput, setAudioInput] = useState('');
@@ -273,7 +273,7 @@ export default function App() {
     if (settings.mdcTiming) setMdcTiming(settings.mdcTiming);
     if (typeof settings.mdcLevel === 'number') setMdcLevel(settings.mdcLevel);
     if (typeof settings.mdcPreamble === 'number') setMdcPreamble(settings.mdcPreamble);
-    if (settings.tpt) setTpt(settings.tpt);
+    if (settings.tpt) setTpt(settings.tpt === ('aps' as string) ? 'apx' : settings.tpt); // migrate old 'aps'
     if (settings.mode) setMode(settings.mode);
     if (typeof settings.ttsEnabled === 'boolean') {
       setTtsEnabled(settings.ttsEnabled);
@@ -861,7 +861,7 @@ export default function App() {
     setMdcPreamble(bytes);
     void persist({ mdcPreamble: bytes });
   };
-  const handleTptChange = (next: 'aps' | 'trbo' | 'trbo-enc') => {
+  const handleTptChange = (next: 'apx' | 'trbo' | 'trbo-enc') => {
     setTpt(next);
     void persist({ tpt: next });
     // Preview the selected tone so the choice is audible.

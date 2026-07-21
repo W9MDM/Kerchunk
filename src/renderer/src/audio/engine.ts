@@ -124,16 +124,16 @@ export class AudioEngine {
   /**
    * Play a talk-permit tone locally (operator sidetone only — not transmitted).
    * Sequences (each beep: start offset, duration, frequency):
-   *   'aps'      — Motorola P25/APX: 910 Hz 30 ms · gap 20 ms · 910 Hz 30 ms · gap 20 ms · 910 Hz 50 ms
+   *   'apx'      — Motorola P25/APX: 910 Hz 30 ms · gap 20 ms · 910 Hz 30 ms · gap 20 ms · 910 Hz 50 ms
    *   'trbo'     — MotoTRBO (CPS-rounded): 1570 · 1050 · 1570 · 1320 Hz, 40 ms each, back-to-back
    *   'trbo-enc' — MotoTRBO encrypted: same four-step sequence as 'trbo' (measured from a reference clip)
    */
-  playTalkPermitTone(type: 'aps' | 'trbo' | 'trbo-enc' = 'aps'): void {
+  playTalkPermitTone(type: 'apx' | 'trbo' | 'trbo-enc' = 'apx'): void {
     const ctx = this.context;
     if (!ctx) return;
     const now = ctx.currentTime;
     const beeps =
-      type !== 'aps'
+      type !== 'apx'
         ? [
             { at: 0.0, dur: 0.04, freq: 1570 },
             { at: 0.04, dur: 0.04, freq: 1050 },

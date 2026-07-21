@@ -130,13 +130,13 @@ interface SettingsModalProps {
   mdcTiming: 'start' | 'end' | 'both';
   mdcLevel: number;
   mdcPreamble: number;
-  tpt: 'aps' | 'trbo' | 'trbo-enc';
+  tpt: 'apx' | 'trbo' | 'trbo-enc';
   onMdcEnabledChange: (on: boolean) => void;
   onMdcUnitIdChange: (id: string) => void;
   onMdcTimingChange: (t: 'start' | 'end' | 'both') => void;
   onMdcLevelChange: (level: number) => void;
   onMdcPreambleChange: (bytes: number) => void;
-  onTptChange: (t: 'aps' | 'trbo' | 'trbo-enc') => void;
+  onTptChange: (t: 'apx' | 'trbo' | 'trbo-enc') => void;
   savedNodes: SavedNode[];
   linkedNumbers: Set<string>;
   keyedNumbers: Set<string>;
@@ -485,7 +485,7 @@ export function SettingsModal(props: SettingsModalProps) {
                     <div className="mb-1 text-xs text-muted-foreground">Talk-permit tone (local sidetone on key-up)</div>
                     <div className="flex rounded-lg bg-muted p-0.5 text-xs">
                       {([
-                        { v: 'aps', l: 'APS TPT' },
+                        { v: 'apx', l: 'APX TPT' },
                         { v: 'trbo', l: 'Trbo TPT' },
                         { v: 'trbo-enc', l: 'Trbo Enc' },
                       ] as const).map((o) => (
@@ -495,8 +495,8 @@ export function SettingsModal(props: SettingsModalProps) {
                       ))}
                     </div>
                     <p className="mt-1 text-[11px] text-muted-foreground">
-                      {props.tpt === 'aps'
-                        ? 'APS/P25: 910 Hz — 30 ms · 30 ms · 50 ms.'
+                      {props.tpt === 'apx'
+                        ? 'APX/P25: 910 Hz — 30 ms · 30 ms · 50 ms.'
                         : props.tpt === 'trbo-enc'
                         ? 'MotoTRBO encrypted: 1570 · 1050 · 1570 · 1320 Hz, 40 ms each.'
                         : 'MotoTRBO: 1570 · 1050 · 1570 · 1320 Hz, 40 ms each.'}{' '}
