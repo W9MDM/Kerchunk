@@ -1,7 +1,7 @@
 # Third-Party Notices
 
-Kerchunk is copyright © 2026 W9MDM and distributed under the MIT License
-(see [LICENSE](./LICENSE)).
+Kerchunk is copyright © 2026 W9MDM and distributed under the PolyForm
+Noncommercial License 1.0.0 (see [LICENSE](./LICENSE)).
 
 Kerchunk is built on the following open-source components. Each remains under
 its own license; the summaries below are informational.

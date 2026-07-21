@@ -1,10 +1,10 @@
 {
   "name": "kerchunk",
-  "version": "0.9.12",
+  "version": "0.9.13",
   "private": true,
   "description": "A self-contained AllStarLink-style node for the desktop — link to nodes, conference audio, and talk with push-to-talk. Includes Web Transceiver guest mode.",
   "author": "W9MDM",
-  "license": "MIT",
+  "license": "PolyForm-Noncommercial-1.0.0",
   "copyright": "Copyright © 2026 W9MDM",
   "homepage": "https://www.qrz.com/db/W9MDM",
   "main": "./dist/main/index.cjs",
