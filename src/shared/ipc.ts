@@ -148,6 +148,8 @@ export interface NodeSettings {
   mdcPreamble?: number;
   /** Local talk-permit tone played on key-up (a tone id from shared/tpt.ts). */
   tpt?: string;
+  /** Play the talk-permit tone on key-up even without MDC enabled. */
+  tptEnabled?: boolean;
   /** Last-used connection mode: real node vs. Web Transceiver guest. */
   mode?: 'node' | 'guest';
 }

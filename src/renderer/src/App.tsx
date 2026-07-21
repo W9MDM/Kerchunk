@@ -154,6 +154,7 @@ export default function App() {
   const [mdcLevel, setMdcLevel] = useState(52);
   const [mdcPreamble, setMdcPreamble] = useState(24);
   const [tpt, setTpt] = useState<string>(DEFAULT_TPT);
+  const [tptEnabled, setTptEnabled] = useState(false);
   const [heardMdc, setHeardMdc] = useState<string | null>(null);
   const [ttsEnabled, setTtsEnabled] = useState(false);
   const [audioInput, setAudioInput] = useState('');
@@ -214,6 +215,7 @@ export default function App() {
     mdcLevel,
     mdcPreamble,
     tpt,
+    tptEnabled,
     mode,
     ttsEnabled,
     audioInput,
@@ -275,6 +277,7 @@ export default function App() {
     if (typeof settings.mdcLevel === 'number') setMdcLevel(settings.mdcLevel);
     if (typeof settings.mdcPreamble === 'number') setMdcPreamble(settings.mdcPreamble);
     if (settings.tpt) setTpt(settings.tpt === 'aps' ? 'apx' : settings.tpt); // migrate old 'aps'
+    if (typeof settings.tptEnabled === 'boolean') setTptEnabled(settings.tptEnabled);
     if (settings.mode) setMode(settings.mode);
     if (typeof settings.ttsEnabled === 'boolean') {
       setTtsEnabled(settings.ttsEnabled);
@@ -753,7 +756,9 @@ export default function App() {
     setTransmitting(on);
     if (on) {
       // Local talk-permit tone while the MDC PTT-ID goes out over the air.
-      if (mdcEnabled && (mdcTiming === 'start' || mdcTiming === 'both')) {
+      // Talk-permit tone on key-up: the standalone toggle, or (legacy) whenever
+      // MDC is set to send at key-up/both.
+      if (tptEnabled || (mdcEnabled && (mdcTiming === 'start' || mdcTiming === 'both'))) {
         audioEngineRef.current?.playTalkPermitTone(tpt);
       }
       window.electronAPI.txStart(); // re-establish the stream on each key-up
@@ -867,6 +872,11 @@ export default function App() {
     void persist({ tpt: next });
     // Preview the selected tone so the choice is audible.
     void getAudioEngine().start().then(() => audioEngineRef.current?.playTalkPermitTone(next));
+  };
+  const handleTptEnabledChange = (on: boolean) => {
+    setTptEnabled(on);
+    void persist({ tptEnabled: on });
+    if (on) void getAudioEngine().start().then(() => audioEngineRef.current?.playTalkPermitTone(tpt));
   };
 
   // PTT hotkey: hold-to-talk or press-to-toggle, ignored while typing in a field.
@@ -1254,12 +1264,14 @@ export default function App() {
         mdcLevel={mdcLevel}
         mdcPreamble={mdcPreamble}
         tpt={tpt}
+        tptEnabled={tptEnabled}
         onMdcEnabledChange={handleMdcEnabledChange}
         onMdcUnitIdChange={handleMdcUnitIdChange}
         onMdcTimingChange={handleMdcTimingChange}
         onMdcLevelChange={handleMdcLevelChange}
         onMdcPreambleChange={handleMdcPreambleChange}
         onTptChange={handleTptChange}
+        onTptEnabledChange={handleTptEnabledChange}
         savedNodes={savedNodes}
         linkedNumbers={new Set(connections.map((c) => c.label))}
         keyedNumbers={keyedNumbers}
