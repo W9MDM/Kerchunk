@@ -22,7 +22,7 @@ const BRANDS: Record<string, Brand> = {
   },
   tnara: {
     id: 'tnara',
-    name: 'TNARA TAC',
+    name: 'TNARA Kerchunk',
     tagline: 'Tennessee Amateur Radio Association',
     defaultSavedNodes: [{ number: '610750', note: 'TNARA TAC', description: 'TNARA TAC System', permanent: true }],
   },
