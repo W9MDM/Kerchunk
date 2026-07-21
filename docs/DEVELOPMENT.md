@@ -58,6 +58,24 @@ tar czf Kerchunk-<version>-linux-x64.tar.gz \
 
 Build the native AppImage/`.deb` on Linux or in CI.
 
+### CI releases (Gitea Actions)
+
+`.gitea/workflows/release.yml` builds and publishes a release on every version
+tag push:
+
+```bash
+git tag v0.9.6 && git push origin v0.9.6
+```
+
+It runs on a Linux runner in the `electronuserland/builder:wine` container, so it
+produces the Windows installers (Setup + Portable, via Wine) **and** the native
+Linux AppImage + `.deb` in one job, then attaches them to the Gitea release for
+that tag. The release is created by calling the Gitea API directly (only touches
+your instance — no external release action), using the runner's automatic
+`GITHUB_TOKEN`; if that lacks release-write permission, add a `RELEASE_TOKEN`
+secret (a Gitea PAT with repo scope) and reference it in the workflow. macOS
+`.dmg` needs a macOS runner and isn't built in CI.
+
 > **Testing the packaged Windows exe:** if `ELECTRON_RUN_AS_NODE=1` is set in the
 > shell, the built exe launches as a bare Node process and looks broken. Clear it
 > first: `Remove-Item Env:ELECTRON_RUN_AS_NODE` (PowerShell).

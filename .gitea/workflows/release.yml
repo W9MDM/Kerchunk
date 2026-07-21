@@ -1,0 +1,99 @@
+# Builds Kerchunk and publishes a Gitea release whenever a version tag is pushed.
+#
+#   git tag v0.9.6 && git push origin v0.9.6
+#
+# Produces Windows (Setup + Portable, built via Wine), Linux (AppImage + .deb),
+# and attaches them to the release for that tag. macOS (.dmg) needs a macOS
+# runner and is intentionally not built here.
+#
+# Requirements on your Gitea instance:
+#   * A registered act_runner whose labels include the `runs-on` value below and
+#     that can run Docker containers.
+#   * The runner needs outbound access to your npm registry and (on the first
+#     build) the Electron binary host, plus reach to your Gitea instance.
+#   * Actions enabled for the repo (Settings → Actions).
+#
+# If your runner can't fetch actions from github.com (strict firewall), replace
+# the "Checkout" step with the commented "Checkout (no external action)" step.
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    # Debian image with Node, Wine, and all electron-builder dependencies
+    # preinstalled — lets a Linux runner build the Windows installers too.
+    container:
+      image: electronuserland/builder:wine
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # --- Firewall fallback: use this instead of actions/checkout if the runner
+      # --- cannot reach github.com to fetch the checkout action.
+      # - name: Checkout (no external action)
+      #   run: |
+      #     git clone --depth 1 --branch "${GITHUB_REF_NAME}" \
+      #       "$(echo "$GITHUB_SERVER_URL" | sed "s#://#://token:${{ secrets.GITHUB_TOKEN }}@#")/${GITHUB_REPOSITORY}.git" .
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Compile (electron-vite)
+        run: npm run build
+
+      - name: Package Windows + Linux
+        env:
+          # Unsigned builds — skip code signing so nothing phones a timestamp server.
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npx electron-builder --linux --win --publish never
+
+      - name: Publish Gitea release
+        env:
+          # Gitea injects an automatic, repo-scoped token. If release creation
+          # fails with 403, create a repo/org secret RELEASE_TOKEN (a Gitea access
+          # token with repo scope) and use it here instead.
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          API="${GITHUB_SERVER_URL}/api/v1"
+          REPO="${GITHUB_REPOSITORY}"
+          TAG="${GITHUB_REF_NAME}"
+
+          echo "Creating release $TAG in $REPO"
+          create=$(curl -s -o /tmp/rel.json -w '%{http_code}' -X POST \
+            "$API/repos/$REPO/releases" \
+            -H "Authorization: token $TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{\"tag_name\":\"$TAG\",\"name\":\"Kerchunk $TAG\",\"body\":\"Automated build of $TAG.\"}")
+
+          if [ "$create" = "201" ]; then
+            rel_id=$(sed -n 's/.*"id":\s*\([0-9]\+\).*/\1/p' /tmp/rel.json | head -1)
+          else
+            # Release for this tag already exists — look up its id.
+            echo "Create returned $create; fetching existing release."
+            curl -s "$API/repos/$REPO/releases/tags/$TAG" \
+              -H "Authorization: token $TOKEN" -o /tmp/rel.json
+            rel_id=$(sed -n 's/.*"id":\s*\([0-9]\+\).*/\1/p' /tmp/rel.json | head -1)
+          fi
+
+          if [ -z "$rel_id" ]; then
+            echo "Could not determine release id:"; cat /tmp/rel.json; exit 1
+          fi
+          echo "Release id: $rel_id"
+
+          shopt -s nullglob
+          for f in release/*.exe release/*.AppImage release/*.deb; do
+            echo "Uploading $(basename "$f")"
+            curl -s -f -X POST \
+              "$API/repos/$REPO/releases/$rel_id/assets?name=$(basename "$f")" \
+              -H "Authorization: token $TOKEN" \
+              -F "attachment=@$f" > /dev/null
+          done
+          echo "Done."
