@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { ThemeMode, ThemeState } from '../../../shared/theme';
 import type { SavedNode } from '../../../shared/ipc';
-import { TPT_DEFS, tptSummary } from '../../../shared/tpt';
+import { TPT_DEFS } from '../../../shared/tpt';
 import {
   FontAwesomeIcon,
   faXmark,
@@ -492,7 +492,7 @@ export function SettingsModal(props: SettingsModalProps) {
                       ))}
                     </select>
                     <p className="mt-1 text-[11px] text-muted-foreground">
-                      {tptSummary(props.tpt)} · plays on key-up (start/both). Selecting one previews it.
+                      Plays on key-up (start/both). Selecting one previews it.
                     </p>
                   </div>
                   <p className="text-xs text-muted-foreground">
