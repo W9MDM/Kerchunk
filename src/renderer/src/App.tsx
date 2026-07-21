@@ -16,6 +16,7 @@ import { VolumeControl } from './components/VolumeControl';
 import { SetupWizard } from './components/SetupWizard';
 import kerchunkIcon from './assets/kerchunk-icon.png';
 import { decodeG711Chunk } from '../../shared/audio';
+import { DEFAULT_TPT } from '../../shared/tpt';
 import MdcDecoderWorker from './audio/mdcDecoder.worker?worker';
 import { FontAwesomeIcon, faTowerBroadcast, faMicrophone, faMagnifyingGlass, faFloppyDisk } from './icons';
 
@@ -152,7 +153,7 @@ export default function App() {
   const [mdcTiming, setMdcTiming] = useState<'start' | 'end' | 'both'>('start');
   const [mdcLevel, setMdcLevel] = useState(52);
   const [mdcPreamble, setMdcPreamble] = useState(24);
-  const [tpt, setTpt] = useState<'apx' | 'trbo' | 'trbo-enc'>('apx');
+  const [tpt, setTpt] = useState<string>(DEFAULT_TPT);
   const [heardMdc, setHeardMdc] = useState<string | null>(null);
   const [ttsEnabled, setTtsEnabled] = useState(false);
   const [audioInput, setAudioInput] = useState('');
@@ -273,7 +274,7 @@ export default function App() {
     if (settings.mdcTiming) setMdcTiming(settings.mdcTiming);
     if (typeof settings.mdcLevel === 'number') setMdcLevel(settings.mdcLevel);
     if (typeof settings.mdcPreamble === 'number') setMdcPreamble(settings.mdcPreamble);
-    if (settings.tpt) setTpt(settings.tpt === ('aps' as string) ? 'apx' : settings.tpt); // migrate old 'aps'
+    if (settings.tpt) setTpt(settings.tpt === 'aps' ? 'apx' : settings.tpt); // migrate old 'aps'
     if (settings.mode) setMode(settings.mode);
     if (typeof settings.ttsEnabled === 'boolean') {
       setTtsEnabled(settings.ttsEnabled);
@@ -861,7 +862,7 @@ export default function App() {
     setMdcPreamble(bytes);
     void persist({ mdcPreamble: bytes });
   };
-  const handleTptChange = (next: 'apx' | 'trbo' | 'trbo-enc') => {
+  const handleTptChange = (next: string) => {
     setTpt(next);
     void persist({ tpt: next });
     // Preview the selected tone so the choice is audible.

@@ -1,4 +1,5 @@
 import { decodeG711Chunk, encodeG711Chunk } from '../../../shared/audio';
+import { DEFAULT_TPT, tptSteps } from '../../../shared/tpt';
 import { SAMPLE_RATE, floatFrameToPcm16, frameLevel } from './framing';
 
 export interface AudioEngineCallbacks {
@@ -123,43 +124,33 @@ export class AudioEngine {
 
   /**
    * Play a talk-permit tone locally (operator sidetone only — not transmitted).
-   * Sequences (each beep: start offset, duration, frequency):
-   *   'apx'      — Motorola P25/APX: 910 Hz 30 ms · gap 20 ms · 910 Hz 30 ms · gap 20 ms · 910 Hz 50 ms
-   *   'trbo'     — MotoTRBO (CPS-rounded): 1570 · 1050 · 1570 · 1320 Hz, 40 ms each, back-to-back
-   *   'trbo-enc' — MotoTRBO encrypted: same four-step sequence as 'trbo' (measured from a reference clip)
+   * The sequence is looked up by id from the shared TPT definitions.
    */
-  playTalkPermitTone(type: 'apx' | 'trbo' | 'trbo-enc' = 'apx'): void {
+  playTalkPermitTone(id: string = DEFAULT_TPT): void {
     const ctx = this.context;
     if (!ctx) return;
     const now = ctx.currentTime;
-    const beeps =
-      type !== 'apx'
-        ? [
-            { at: 0.0, dur: 0.04, freq: 1570 },
-            { at: 0.04, dur: 0.04, freq: 1050 },
-            { at: 0.08, dur: 0.04, freq: 1570 },
-            { at: 0.12, dur: 0.04, freq: 1320 },
-          ]
-        : [
-            { at: 0.0, dur: 0.03, freq: 910 },
-            { at: 0.05, dur: 0.03, freq: 910 },
-            { at: 0.1, dur: 0.05, freq: 910 },
-          ];
-    for (const beep of beeps) {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.value = beep.freq;
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      const t0 = now + beep.at;
-      const t1 = t0 + beep.dur;
-      gain.gain.setValueAtTime(0, t0);
-      gain.gain.linearRampToValueAtTime(0.22, t0 + 0.004);
-      gain.gain.setValueAtTime(0.22, t1 - 0.004);
-      gain.gain.linearRampToValueAtTime(0, t1);
-      osc.start(t0);
-      osc.stop(t1 + 0.005);
+    let t = 0;
+    for (const step of tptSteps(id)) {
+      const dur = step.ms / 1000;
+      if (step.freq > 0) {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = step.freq;
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        const t0 = now + t;
+        const t1 = t0 + dur;
+        const atk = Math.min(0.004, dur / 4);
+        gain.gain.setValueAtTime(0, t0);
+        gain.gain.linearRampToValueAtTime(0.22, t0 + atk);
+        gain.gain.setValueAtTime(0.22, t1 - atk);
+        gain.gain.linearRampToValueAtTime(0, t1);
+        osc.start(t0);
+        osc.stop(t1 + 0.005);
+      }
+      t += dur;
     }
   }
 
