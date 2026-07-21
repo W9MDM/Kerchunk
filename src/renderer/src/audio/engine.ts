@@ -122,23 +122,33 @@ export class AudioEngine {
   }
 
   /**
-   * Play the Motorola P25 talk-permit tone locally (operator sidetone only — not
-   * transmitted): 910 Hz 30 ms, gap 20 ms, 910 Hz 30 ms, gap 20 ms, 910 Hz 50 ms.
+   * Play a talk-permit tone locally (operator sidetone only — not transmitted).
+   * Sequences (each beep: start offset, duration, frequency):
+   *   'aps'  — Motorola P25/APX: 910 Hz 30 ms · gap 20 ms · 910 Hz 30 ms · gap 20 ms · 910 Hz 50 ms
+   *   'trbo' — MotoTRBO (CPS-rounded): 1570 · 1050 · 1570 · 1320 Hz, 40 ms each, back-to-back
    */
-  playTalkPermitTone(): void {
+  playTalkPermitTone(type: 'aps' | 'trbo' = 'aps'): void {
     const ctx = this.context;
     if (!ctx) return;
     const now = ctx.currentTime;
-    const beeps = [
-      { at: 0.0, dur: 0.03 },
-      { at: 0.05, dur: 0.03 },
-      { at: 0.1, dur: 0.05 },
-    ];
+    const beeps =
+      type === 'trbo'
+        ? [
+            { at: 0.0, dur: 0.04, freq: 1570 },
+            { at: 0.04, dur: 0.04, freq: 1050 },
+            { at: 0.08, dur: 0.04, freq: 1570 },
+            { at: 0.12, dur: 0.04, freq: 1320 },
+          ]
+        : [
+            { at: 0.0, dur: 0.03, freq: 910 },
+            { at: 0.05, dur: 0.03, freq: 910 },
+            { at: 0.1, dur: 0.05, freq: 910 },
+          ];
     for (const beep of beeps) {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = 'sine';
-      osc.frequency.value = 910;
+      osc.frequency.value = beep.freq;
       osc.connect(gain);
       gain.connect(ctx.destination);
       const t0 = now + beep.at;

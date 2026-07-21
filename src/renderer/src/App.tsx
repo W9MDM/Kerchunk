@@ -152,6 +152,7 @@ export default function App() {
   const [mdcTiming, setMdcTiming] = useState<'start' | 'end' | 'both'>('start');
   const [mdcLevel, setMdcLevel] = useState(52);
   const [mdcPreamble, setMdcPreamble] = useState(24);
+  const [tpt, setTpt] = useState<'aps' | 'trbo'>('aps');
   const [heardMdc, setHeardMdc] = useState<string | null>(null);
   const [ttsEnabled, setTtsEnabled] = useState(false);
   const [audioInput, setAudioInput] = useState('');
@@ -211,6 +212,7 @@ export default function App() {
     mdcTiming,
     mdcLevel,
     mdcPreamble,
+    tpt,
     mode,
     ttsEnabled,
     audioInput,
@@ -271,6 +273,7 @@ export default function App() {
     if (settings.mdcTiming) setMdcTiming(settings.mdcTiming);
     if (typeof settings.mdcLevel === 'number') setMdcLevel(settings.mdcLevel);
     if (typeof settings.mdcPreamble === 'number') setMdcPreamble(settings.mdcPreamble);
+    if (settings.tpt) setTpt(settings.tpt);
     if (settings.mode) setMode(settings.mode);
     if (typeof settings.ttsEnabled === 'boolean') {
       setTtsEnabled(settings.ttsEnabled);
@@ -750,7 +753,7 @@ export default function App() {
     if (on) {
       // Local talk-permit tone while the MDC PTT-ID goes out over the air.
       if (mdcEnabled && (mdcTiming === 'start' || mdcTiming === 'both')) {
-        audioEngineRef.current?.playTalkPermitTone();
+        audioEngineRef.current?.playTalkPermitTone(tpt);
       }
       window.electronAPI.txStart(); // re-establish the stream on each key-up
     } else {
@@ -857,6 +860,12 @@ export default function App() {
   const handleMdcPreambleChange = (bytes: number) => {
     setMdcPreamble(bytes);
     void persist({ mdcPreamble: bytes });
+  };
+  const handleTptChange = (next: 'aps' | 'trbo') => {
+    setTpt(next);
+    void persist({ tpt: next });
+    // Preview the selected tone so the choice is audible.
+    void getAudioEngine().start().then(() => audioEngineRef.current?.playTalkPermitTone(next));
   };
 
   // PTT hotkey: hold-to-talk or press-to-toggle, ignored while typing in a field.
@@ -1243,11 +1252,13 @@ export default function App() {
         mdcTiming={mdcTiming}
         mdcLevel={mdcLevel}
         mdcPreamble={mdcPreamble}
+        tpt={tpt}
         onMdcEnabledChange={handleMdcEnabledChange}
         onMdcUnitIdChange={handleMdcUnitIdChange}
         onMdcTimingChange={handleMdcTimingChange}
         onMdcLevelChange={handleMdcLevelChange}
         onMdcPreambleChange={handleMdcPreambleChange}
+        onTptChange={handleTptChange}
         savedNodes={savedNodes}
         linkedNumbers={new Set(connections.map((c) => c.label))}
         keyedNumbers={keyedNumbers}
