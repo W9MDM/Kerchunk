@@ -1,6 +1,6 @@
 {
   "name": "kerchunk",
-  "version": "0.9.10",
+  "version": "0.9.11",
   "private": true,
   "description": "A self-contained AllStarLink-style node for the desktop — link to nodes, conference audio, and talk with push-to-talk. Includes Web Transceiver guest mode.",
   "author": "W9MDM",
@@ -115,7 +115,6 @@
     },
     "linux": {
       "target": [
-        "AppImage",
         "deb"
       ],
       "icon": "build/icon.png",

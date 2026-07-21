@@ -130,10 +130,12 @@ npm test             # run the Vitest suite
 Build artifacts land in `release/`. The app icon is generated into
 `build/icon.png` and electron-builder derives the per-platform icons from it.
 
-> **Linux packaging note:** the AppImage/`.deb` targets can't be assembled on
-> Windows (`mksquashfs` isn't available), so the Windows workflow ships Linux as
-> a `Kerchunk-x.y.z-linux-x64.tar.gz` tarball built from `release/linux-unpacked`
-> (with a `run.sh` launcher). Build the native AppImage/`.deb` on Linux or in CI.
+> **Linux packaging note:** the `.deb` can't be assembled on Windows
+> (`mksquashfs` isn't available), so a local Windows workflow ships Linux as a
+> `Kerchunk-x.y.z-linux-x64.tar.gz` tarball built from `release/linux-unpacked`
+> (with a `run.sh` launcher). CI builds the native `.deb` on Linux. (The AppImage
+> target was dropped: at ~112 MB it exceeded the 100 MB upload cap of the
+> Cloudflare proxy in front of the Gitea release host.)
 
 ## Roadmap
 
