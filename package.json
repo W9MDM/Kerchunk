@@ -6,6 +6,7 @@
   "author": "W9MDM",
   "license": "MIT",
   "copyright": "Copyright © 2026 W9MDM",
+  "homepage": "https://www.qrz.com/db/W9MDM",
   "main": "./dist/main/index.cjs",
   "type": "module",
   "scripts": {
