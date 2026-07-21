@@ -69,12 +69,17 @@ git tag v0.9.6 && git push origin v0.9.6
 
 It runs on a Linux runner in the `electronuserland/builder:wine` container, so it
 produces the Windows installers (Setup + Portable, via Wine) **and** the native
-Linux AppImage + `.deb` in one job, then attaches them to the Gitea release for
-that tag. The release is created by calling the Gitea API directly (only touches
-your instance — no external release action), using the runner's automatic
+Linux `.deb` in one job, then attaches them to the Gitea release for that tag.
+The release is created by calling the Gitea API directly (only touches your
+instance — no external release action), using the runner's automatic
 `GITHUB_TOKEN`; if that lacks release-write permission, add a `RELEASE_TOKEN`
 secret (a Gitea PAT with repo scope) and reference it in the workflow. macOS
 `.dmg` needs a macOS runner and isn't built in CI.
+
+> **Upload size cap:** the Gitea host is behind Cloudflare, which rejects request
+> bodies over 100 MB (HTTP 413). Release assets must stay under that — which is
+> why the Linux **AppImage** (~112 MB) was dropped in favor of the `.deb` (~88 MB),
+> and why `compression: maximum` is set in the electron-builder config.
 
 > **Testing the packaged Windows exe:** if `ELECTRON_RUN_AS_NODE=1` is set in the
 > shell, the built exe launches as a bare Node process and looks broken. Clear it
