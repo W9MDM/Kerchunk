@@ -1,4 +1,5 @@
-import { app, BrowserWindow, dialog, globalShortcut, ipcMain, Menu, nativeImage, nativeTheme, screen, Tray } from 'electron';
+import { app, BrowserWindow, dialog, globalShortcut, ipcMain, Menu, nativeImage, nativeTheme, screen, shell, Tray } from 'electron';
+import electronUpdater from 'electron-updater';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -397,6 +398,78 @@ function sendProtocolState(state: string) {
   mainWindow?.webContents.send(IPC_CHANNELS.PROTOCOL_STATE, payload);
 }
 
+// ---- Auto-update (electron-updater against GitHub Releases) -----------------
+const { autoUpdater } = electronUpdater;
+const RELEASES_URL = 'https://github.com/W9MDM/Kerchunk/releases';
+let updateWired = false;
+let updateCheckManual = false;
+
+/** Fetch a release's notes from the GitHub API (public repo, best-effort). */
+async function fetchReleaseNotes(version: string): Promise<string> {
+  try {
+    const res = await fetch(`https://api.github.com/repos/W9MDM/Kerchunk/releases/tags/v${version}`, {
+      headers: { Accept: 'application/vnd.github+json' },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return '';
+    const data = (await res.json()) as { body?: string };
+    return (data.body ?? '').trim();
+  } catch {
+    return '';
+  }
+}
+
+function setupAutoUpdater() {
+  if (updateWired) return;
+  updateWired = true;
+  autoUpdater.autoDownload = false;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  autoUpdater.on('update-available', (info) => {
+    void (async () => {
+      const notes =
+        (typeof info.releaseNotes === 'string' ? info.releaseNotes : '') || (await fetchReleaseNotes(info.version));
+      mainWindow?.webContents.send(IPC_CHANNELS.UPDATE_AVAILABLE, {
+        version: info.version,
+        notes,
+        releasesUrl: RELEASES_URL,
+      });
+    })();
+  });
+  autoUpdater.on('update-not-available', () => {
+    if (updateCheckManual) mainWindow?.webContents.send(IPC_CHANNELS.UPDATE_NONE);
+  });
+  autoUpdater.on('download-progress', (p) => {
+    mainWindow?.webContents.send(IPC_CHANNELS.UPDATE_PROGRESS, Math.round(p.percent));
+  });
+  autoUpdater.on('update-downloaded', (info) => {
+    mainWindow?.webContents.send(IPC_CHANNELS.UPDATE_DOWNLOADED, {
+      version: info.version,
+      notes: '',
+      releasesUrl: RELEASES_URL,
+    });
+  });
+  autoUpdater.on('error', (err) => {
+    // Only surface errors on a manual check — auto-checks (and unsupported
+    // targets like portable/.deb, which lack app-update.yml) fail quietly.
+    if (updateCheckManual) mainWindow?.webContents.send(IPC_CHANNELS.UPDATE_ERROR, err?.message ?? String(err));
+    logMain(`autoUpdater error: ${err?.stack ?? err}`);
+  });
+}
+
+function checkForUpdates(manual: boolean) {
+  if (!app.isPackaged) {
+    if (manual) mainWindow?.webContents.send(IPC_CHANNELS.UPDATE_ERROR, 'Updates are only available in a packaged build.');
+    return;
+  }
+  setupAutoUpdater();
+  updateCheckManual = manual;
+  autoUpdater.checkForUpdates().catch((err) => {
+    if (manual) mainWindow?.webContents.send(IPC_CHANNELS.UPDATE_ERROR, err?.message ?? String(err));
+    logMain(`checkForUpdates failed: ${String(err)}`);
+  });
+}
+
 
 function ensureNode(identity?: { username?: string; secret?: string }) {
   if (!protocolNode) {
@@ -476,6 +549,8 @@ app.whenReady().then(() => {
   createTray();
   applyLoginItem(readNodeSettings().launchOnStartup ?? false);
   if (readNodeSettings().overlayEnabled) createOverlay();
+  // Quietly check GitHub for an update shortly after launch (packaged only).
+  setTimeout(() => checkForUpdates(false), 5000);
 
   ipcMain.handle(THEME_CHANNELS.GET_STATE, () => {
     const mode = readThemePreference();
@@ -667,6 +742,20 @@ app.whenReady().then(() => {
 
   ipcMain.on(IPC_CHANNELS.OVERLAY_PTT, (_event, down: boolean) => {
     mainWindow?.webContents.send(IPC_CHANNELS.OVERLAY_PTT, down);
+  });
+
+  ipcMain.on(IPC_CHANNELS.UPDATE_CHECK, (_event, manual: boolean) => checkForUpdates(Boolean(manual)));
+  ipcMain.on(IPC_CHANNELS.UPDATE_DOWNLOAD, () => {
+    autoUpdater.downloadUpdate().catch((err) => {
+      mainWindow?.webContents.send(IPC_CHANNELS.UPDATE_ERROR, err?.message ?? String(err));
+    });
+  });
+  ipcMain.on(IPC_CHANNELS.UPDATE_INSTALL, () => {
+    isQuitting = true;
+    autoUpdater.quitAndInstall();
+  });
+  ipcMain.on(IPC_CHANNELS.OPEN_EXTERNAL, (_event, url: string) => {
+    if (/^https?:\/\//.test(url)) void shell.openExternal(url);
   });
 
   ipcMain.on(IPC_CHANNELS.OVERLAY_RX, (_event, on: boolean) => {

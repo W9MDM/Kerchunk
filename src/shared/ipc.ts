@@ -21,6 +21,15 @@ export const IPC_CHANNELS = {
   OVERLAY_TX: 'overlay:tx',
   OVERLAY_RX: 'overlay:rx',
   OVERLAY_VISIBILITY: 'overlay:visibility',
+  UPDATE_CHECK: 'update:check',
+  UPDATE_DOWNLOAD: 'update:download',
+  UPDATE_INSTALL: 'update:install',
+  UPDATE_AVAILABLE: 'update:available',
+  UPDATE_NONE: 'update:none',
+  UPDATE_PROGRESS: 'update:progress',
+  UPDATE_DOWNLOADED: 'update:downloaded',
+  UPDATE_ERROR: 'update:error',
+  OPEN_EXTERNAL: 'app:open-external',
   PROTOCOL_AUDIO_TX: 'protocol:audio-tx',
   PROTOCOL_AUDIO_RX: 'protocol:audio-rx',
   PROTOCOL_STATE: 'protocol:state',
@@ -39,6 +48,15 @@ export const IPC_CHANNELS = {
 } as const;
 
 export type { DirectoryNode } from './nodedirectory';
+
+/** A pending app update discovered on GitHub. */
+export interface UpdateInfoDto {
+  version: string;
+  /** Release notes / changelog (markdown or plain text). */
+  notes: string;
+  /** GitHub releases page, for the manual-download fallback. */
+  releasesUrl: string;
+}
 
 export interface TopologyTreeNode {
   node: string;
@@ -301,6 +319,19 @@ export interface KerchunkBridge {
   onOverlayRx(callback: (on: boolean) => void): () => void;
   /** Main window: the overlay's visibility changed (e.g. closed from itself). */
   onOverlayVisibility(callback: (visible: boolean) => void): () => void;
+  /** Check GitHub for an update. `manual` surfaces "up to date"/errors to the user. */
+  checkForUpdate(manual: boolean): void;
+  /** Begin downloading the available update. */
+  downloadUpdate(): void;
+  /** Quit and install the downloaded update. */
+  installUpdate(): void;
+  /** Open a URL in the system browser. */
+  openExternal(url: string): void;
+  onUpdateAvailable(callback: (info: UpdateInfoDto) => void): () => void;
+  onUpdateNone(callback: () => void): () => void;
+  onUpdateProgress(callback: (percent: number) => void): () => void;
+  onUpdateDownloaded(callback: (info: UpdateInfoDto) => void): () => void;
+  onUpdateError(callback: (message: string) => void): () => void;
   onProtocolAudio(callback: (payload: ProtocolAudioPayload) => void): () => void;
   onProtocolState(callback: (payload: ProtocolStatePayload) => void): () => void;
   onProtocolConnections(callback: (payload: ProtocolConnectionsPayload) => void): () => void;

@@ -52,6 +52,8 @@ jobs:
             release/*.exe
             release/*.AppImage
             release/*.deb
+            release/*.yml
+            release/*.blockmap
           if-no-files-found: ignore
 
   release:

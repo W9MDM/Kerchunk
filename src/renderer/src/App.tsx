@@ -14,6 +14,7 @@ import { DtmfPad } from './components/DtmfPad';
 import { AppMenu } from './components/AppMenu';
 import { VolumeControl } from './components/VolumeControl';
 import { SetupWizard } from './components/SetupWizard';
+import { UpdateBanner } from './components/UpdateBanner';
 import kerchunkIcon from './assets/kerchunk-icon.png';
 import { decodeG711Chunk } from '../../shared/audio';
 import { DEFAULT_TPT } from '../../shared/tpt';
@@ -143,6 +144,9 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [directoryOpen, setDirectoryOpen] = useState(false);
   const [setupOpen, setSetupOpen] = useState(false);
+  const [updateInfo, setUpdateInfo] = useState<import('../../shared/ipc').UpdateInfoDto | null>(null);
+  const [updateProgress, setUpdateProgress] = useState<number | null>(null);
+  const [updateDownloaded, setUpdateDownloaded] = useState(false);
   const [keyedNumbers, setKeyedNumbers] = useState<Set<string>>(new Set());
   const [uiScale, setUiScale] = useState(0.75);
   const [accent, setAccent] = useState('#007aff');
@@ -340,6 +344,20 @@ export default function App() {
       window.electronAPI.onOverlayPtt((down) => handleTransmitRef.current(down)),
       // Keep the in-app toggle in sync if the overlay is closed from itself.
       window.electronAPI.onOverlayVisibility((visible) => setOverlayEnabled(visible)),
+      // Auto-update lifecycle.
+      window.electronAPI.onUpdateAvailable((info) => {
+        setUpdateProgress(null);
+        setUpdateDownloaded(false);
+        setUpdateInfo(info);
+        log(`Update available: v${info.version}`);
+      }),
+      window.electronAPI.onUpdateProgress((percent) => setUpdateProgress(percent)),
+      window.electronAPI.onUpdateDownloaded(() => {
+        setUpdateDownloaded(true);
+        setUpdateProgress(100);
+      }),
+      window.electronAPI.onUpdateNone(() => log("You're on the latest version.")),
+      window.electronAPI.onUpdateError((message) => log(`Update check: ${message}`)),
     ];
     return () => disposers.forEach((dispose) => dispose());
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1004,6 +1022,10 @@ export default function App() {
               onDisconnectAll={() => void handleDisconnectAll()}
               onAbout={handleAbout}
               onSetupWizard={() => setSetupOpen(true)}
+              onCheckUpdates={() => {
+                log('Checking for updates…');
+                window.electronAPI.checkForUpdate(true);
+              }}
               canDisconnect={connections.length > 0}
               advancedMode={advancedMode}
               onToggleAdvanced={handleAdvancedToggle}
@@ -1283,6 +1305,19 @@ export default function App() {
         onSave={() => void handleSaveSettings()}
         trace={trace}
         onTraceToggle={(enabled) => void handleTraceToggle(enabled)}
+      />
+
+      <UpdateBanner
+        info={updateInfo}
+        progress={updateProgress}
+        downloaded={updateDownloaded}
+        onDownload={() => {
+          setUpdateProgress(0);
+          window.electronAPI.downloadUpdate();
+        }}
+        onInstall={() => window.electronAPI.installUpdate()}
+        onDismiss={() => setUpdateInfo(null)}
+        onViewGitHub={(url) => window.electronAPI.openExternal(url)}
       />
 
       <SetupWizard

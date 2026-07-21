@@ -104,3 +104,14 @@ node scripts/downloads.mjs --gitea https://git.nsccommunications.com PCARC/kerch
 ```
 
 Both read `download_count` from each release asset via the API and print totals.
+
+## Auto-update
+
+The app uses `electron-updater` against **GitHub Releases** (`build.publish` →
+github W9MDM/Kerchunk). On launch (packaged only) and from the menu's *Check for
+updates*, it reads the release's `latest.yml` / `latest-linux.yml`, and if a
+newer version exists shows an in-app changelog dialog and can download + install
+it — for the **NSIS** installer and **AppImage** only. Portable `.exe` and `.deb`
+lack `app-update.yml`, so the check fails quietly (or, on a manual check, offers
+the GitHub releases link). The CI workflows therefore also upload the
+`*.yml` + `*.blockmap` update-metadata files to each release.
