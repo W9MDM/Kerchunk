@@ -1,8 +1,13 @@
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite';
 import { resolve } from 'node:path';
 
+// Build-time brand selector (white-label). `KERCHUNK_BRAND=tnara npm run …`
+// bakes the brand into both the main and renderer bundles via __BRAND__.
+const brand = JSON.stringify(process.env.KERCHUNK_BRAND ?? 'kerchunk');
+
 export default defineConfig({
   main: {
+    define: { __BRAND__: brand },
     build: {
       outDir: 'dist/main',
       // Emit CommonJS so Electron loads the main process reliably. Package
@@ -35,6 +40,7 @@ export default defineConfig({
   },
   renderer: {
     root: 'src/renderer',
+    define: { __BRAND__: brand },
     build: {
       outDir: 'dist/renderer',
     },
