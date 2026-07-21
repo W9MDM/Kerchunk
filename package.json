@@ -1,6 +1,6 @@
 {
   "name": "kerchunk",
-  "version": "0.9.16",
+  "version": "0.9.17",
   "private": true,
   "description": "A self-contained AllStarLink-style node for the desktop — link to nodes, conference audio, and talk with push-to-talk. Includes Web Transceiver guest mode.",
   "author": "W9MDM",
@@ -21,7 +21,8 @@
     "dist": "electron-vite build && node scripts/dist.mjs",
     "dist:win": "electron-vite build && node scripts/dist.mjs --win",
     "dist:mac": "electron-vite build && node scripts/dist.mjs --mac",
-    "dist:linux": "electron-vite build && node scripts/dist.mjs --linux"
+    "dist:linux": "electron-vite build && node scripts/dist.mjs --linux",
+    "dist:tnara": "node scripts/dist-tnara.mjs"
   },
   "dependencies": {
     "@fortawesome/fontawesome-svg-core": "^7.3.1",

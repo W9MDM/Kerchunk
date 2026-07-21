@@ -16,8 +16,13 @@ import { VolumeControl } from './components/VolumeControl';
 import { SetupWizard } from './components/SetupWizard';
 import { UpdateBanner } from './components/UpdateBanner';
 import kerchunkIcon from './assets/kerchunk-icon.png';
+import tnaraIcon from './assets/tnara-icon.png';
 import { decodeG711Chunk } from '../../shared/audio';
 import { DEFAULT_TPT } from '../../shared/tpt';
+import { BRAND } from '../../shared/brand';
+
+/** Per-build brand logo. */
+const brandLogo = BRAND.id === 'tnara' ? tnaraIcon : kerchunkIcon;
 import MdcDecoderWorker from './audio/mdcDecoder.worker?worker';
 import { FontAwesomeIcon, faTowerBroadcast, faMicrophone, faMagnifyingGlass, faFloppyDisk } from './icons';
 
@@ -174,6 +179,7 @@ export default function App() {
   const [outputVolume, setOutputVolume] = useState(100);
   const [inputGain, setInputGain] = useState(100);
   const [setupComplete, setSetupComplete] = useState(true);
+  const [brandSeeded, setBrandSeeded] = useState(true);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const ttsEnabledRef = useRef(false);
   const notificationsEnabledRef = useRef(false);
@@ -235,6 +241,7 @@ export default function App() {
     outputVolume,
     inputGain,
     setupComplete,
+    brandSeeded,
     notificationsEnabled,
     ...overrides,
   });
@@ -313,6 +320,7 @@ export default function App() {
       getAudioEngine().setInputGain(settings.inputGain / 100);
     }
     setSetupComplete(Boolean(settings.setupComplete));
+    setBrandSeeded(Boolean(settings.brandSeeded));
     if (settings.myNode) void window.electronAPI.getNodeInfo(settings.myNode).then(setSelfInfo);
   };
 
@@ -320,6 +328,17 @@ export default function App() {
     void window.electronAPI.getSettings().then((settings) => {
       applyLoadedSettings(settings);
       if (!settings.setupComplete) setSetupOpen(true); // first-run onboarding
+      // Seed this build's brand default saved nodes once (e.g. TNARA's 610750).
+      if (!settings.brandSeeded && BRAND.defaultSavedNodes.length > 0) {
+        const existing = settings.savedNodes ?? [];
+        const merged = [...existing];
+        for (const d of BRAND.defaultSavedNodes) {
+          if (!merged.some((n) => n.number === d.number)) merged.push(d);
+        }
+        setSavedNodes(merged);
+        setBrandSeeded(true);
+        void window.electronAPI.saveSettings(buildSettings({ savedNodes: merged, brandSeeded: true }));
+      }
     });
     void window.electronAPI.getThemeState().then(setTheme);
     const disposers = [
@@ -986,10 +1005,10 @@ export default function App() {
         {/* Header */}
         <header className="flex items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-2.5">
-            <img src={kerchunkIcon} alt="Kerchunk" className="h-9 w-9 shrink-0 rounded-[10px] shadow-card" />
+            <img src={brandLogo} alt={BRAND.name} className="h-9 w-9 shrink-0 rounded-[10px] shadow-card" />
             <div className="min-w-0">
-              <h1 className="truncate text-base font-semibold leading-tight">Kerchunk</h1>
-              <p className="truncate text-xs text-muted-foreground">Self-contained AllStar node</p>
+              <h1 className="truncate text-base font-semibold leading-tight">{BRAND.name}</h1>
+              <p className="truncate text-xs text-muted-foreground">{BRAND.tagline}</p>
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-1.5">

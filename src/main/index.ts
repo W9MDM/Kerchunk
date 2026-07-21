@@ -22,6 +22,7 @@ import {
   type ProtocolStatePayload,
 } from '../shared/ipc.js';
 import { resolveTheme, THEME_CHANNELS, type ThemeMode } from '../shared/theme.js';
+import { BRAND } from '../shared/brand.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -141,7 +142,7 @@ function createWindow() {
     minWidth: 360,
     minHeight: 480,
     center: !saved,
-    title: 'Kerchunk',
+    title: BRAND.name,
     show: false,
     autoHideMenuBar: true,
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#19191c' : '#f5f5f7',
@@ -223,10 +224,10 @@ function createTray() {
     if (image.isEmpty()) return; // no icon available — skip the tray rather than show a blank
     image = image.resize({ width: 16, height: 16 });
     tray = new Tray(image);
-    tray.setToolTip('Kerchunk');
+    tray.setToolTip(BRAND.name);
     tray.setContextMenu(
       Menu.buildFromTemplate([
-        { label: 'Show Kerchunk', click: () => revealWindow() },
+        { label: `Show ${BRAND.name}`, click: () => revealWindow() },
         { label: 'Hide', click: () => mainWindow?.hide() },
         { type: 'separator' },
         { label: 'Quit', click: () => { isQuitting = true; app.quit(); } },
@@ -458,6 +459,12 @@ function setupAutoUpdater() {
 }
 
 function checkForUpdates(manual: boolean) {
+  if (BRAND.id !== 'kerchunk') {
+    // White-label builds (e.g. TNARA) share the Kerchunk GitHub release; auto-
+    // updating would replace their branding. Point them at manual downloads.
+    if (manual) mainWindow?.webContents.send(IPC_CHANNELS.UPDATE_ERROR, 'This build updates manually — download the latest from your provider.');
+    return;
+  }
   if (!app.isPackaged) {
     if (manual) mainWindow?.webContents.send(IPC_CHANNELS.UPDATE_ERROR, 'Updates are only available in a packaged build.');
     return;
