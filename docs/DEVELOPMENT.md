@@ -81,6 +81,14 @@ secret (a Gitea PAT with repo scope) and reference it in the workflow. macOS
 > why the Linux **AppImage** (~112 MB) was dropped in favor of the `.deb` (~88 MB),
 > and why `compression: maximum` is set in the electron-builder config.
 
+The repo also pushes to a GitHub mirror (`origin` has two push URLs). A parallel
+`.github/workflows/release.yml` publishes a **GitHub Release** on the same `v*`
+tags, using GitHub-hosted `windows-latest` + `ubuntu-latest` runners. GitHub has
+no upload cap, so it ships the Linux **AppImage** too (via `--linux AppImage deb`
+on the CLI, overriding the deb-only `package.json` target). Both workflow files
+are tag-triggered; the GitHub one is guarded with `if: github.server_url ==
+'https://github.com'` so Gitea (which also scans `.github/workflows`) skips it.
+
 > **Testing the packaged Windows exe:** if `ELECTRON_RUN_AS_NODE=1` is set in the
 > shell, the built exe launches as a bare Node process and looks broken. Clear it
 > first: `Remove-Item Env:ELECTRON_RUN_AS_NODE` (PowerShell).
