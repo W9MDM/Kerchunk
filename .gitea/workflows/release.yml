@@ -91,13 +91,33 @@ jobs:
           fi
           echo "Release id: $rel_id"
 
+          # Delete any existing assets so re-runs are idempotent (Gitea rejects
+          # duplicate asset names with a 400).
+          curl -s "$API/repos/$REPO/releases/$rel_id/assets" \
+            -H "Authorization: token $TOKEN" -o /tmp/assets.json || true
+          for aid in $(grep -o '"id":[0-9]*' /tmp/assets.json | cut -d: -f2); do
+            echo "Removing existing asset $aid"
+            curl -s -X DELETE "$API/repos/$REPO/releases/$rel_id/assets/$aid" \
+              -H "Authorization: token $TOKEN" > /dev/null || true
+          done
+
           shopt -s nullglob
+          fail=0
           for f in release/*.exe release/*.AppImage release/*.deb; do
             [ -e "$f" ] || continue
-            echo "Uploading $(basename "$f")"
-            curl -s -f -X POST \
-              "$API/repos/$REPO/releases/$rel_id/assets?name=$(basename "$f")" \
+            name=$(basename "$f")
+            echo "Uploading $name ($(du -h "$f" | cut -f1))"
+            code=$(curl -s -o /tmp/up.json -w '%{http_code}' -X POST \
+              "$API/repos/$REPO/releases/$rel_id/assets?name=$name" \
               -H "Authorization: token $TOKEN" \
-              -F "attachment=@$f" > /dev/null
+              -F "attachment=@$f")
+            if [ "$code" -ge 400 ]; then
+              echo "  ! FAILED (HTTP $code): $(cat /tmp/up.json)"
+              fail=1
+            fi
           done
+          if [ "$fail" != 0 ]; then
+            echo "One or more asset uploads failed (see above)."
+            exit 1
+          fi
           echo "Done."
