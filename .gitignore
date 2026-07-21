@@ -15,3 +15,6 @@ kerchunk/
 
 # Reference tone clips (source material, not shipped)
 TPT/
+
+# TypeScript incremental build cache
+*.tsbuildinfo
