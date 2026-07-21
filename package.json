@@ -16,6 +16,7 @@
     "lint": "eslint . --ext .ts,.tsx",
     "typecheck": "tsc -b tsconfig.json",
     "format": "prettier --write .",
+    "downloads": "node scripts/downloads.mjs",
     "pack": "electron-vite build && electron-builder --dir",
     "dist": "electron-vite build && node scripts/dist.mjs",
     "dist:win": "electron-vite build && node scripts/dist.mjs --win",

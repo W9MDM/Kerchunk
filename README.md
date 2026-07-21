@@ -1,5 +1,9 @@
 # Kerchunk
 
+[![GitHub release](https://img.shields.io/github/v/release/W9MDM/Kerchunk?sort=semver)](https://github.com/W9MDM/Kerchunk/releases/latest)
+[![Total downloads](https://img.shields.io/github/downloads/W9MDM/Kerchunk/total?label=downloads)](https://github.com/W9MDM/Kerchunk/releases)
+[![Latest release downloads](https://img.shields.io/github/downloads/W9MDM/Kerchunk/latest/total?label=latest%20release)](https://github.com/W9MDM/Kerchunk/releases/latest)
+
 Kerchunk is a native, cross-platform desktop client for operating a full AllStarLink-style node without radio hardware, a Pi, or a VM. It is built with Electron and TypeScript and targets Windows, Linux, and macOS.
 
 The project is independent and is not affiliated with or endorsed by AllStarLink, Inc.
