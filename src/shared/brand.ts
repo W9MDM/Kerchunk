@@ -11,6 +11,8 @@ export interface Brand {
   tagline: string;
   /** Saved nodes seeded on first run for this brand. */
   defaultSavedNodes: SavedNode[];
+  /** Default accent color (#rrggbb) applied when the operator hasn't set one. */
+  accent?: string;
 }
 
 const BRANDS: Record<string, Brand> = {
@@ -20,11 +22,13 @@ const BRANDS: Record<string, Brand> = {
     tagline: 'Self-contained AllStar node',
     defaultSavedNodes: [],
   },
-  tnara: {
-    id: 'tnara',
-    name: 'TNARA Kerchunk',
+  tara: {
+    id: 'tara',
+    name: 'TARA Kerchunk',
     tagline: 'Tennessee Amateur Radio Association',
-    defaultSavedNodes: [{ number: '610750', note: 'TNARA TAC', description: 'TNARA TAC System', permanent: true }],
+    defaultSavedNodes: [{ number: '610750', note: 'TARA TAC', description: 'TARA TAC System', permanent: true }],
+    // TARA logo palette: navy #183048 (primary) with red #a81818 accents.
+    accent: '#183048',
   },
 };
 

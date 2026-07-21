@@ -5,7 +5,7 @@ import reactHooks from 'eslint-plugin-react-hooks';
 
 export default [
   {
-    ignores: ['dist/**', 'node_modules/**', 'scripts/**', 'kerchunk/**', 'release/**', 'release-tnara/**', 'electron-builder.*.cjs'],
+    ignores: ['dist/**', 'node_modules/**', 'scripts/**', 'kerchunk/**', 'release/**', 'release-tara/**', 'electron-builder.*.cjs'],
   },
   js.configs.recommended,
   {
