@@ -60,19 +60,19 @@ Build the native AppImage/`.deb` on Linux or in CI.
 
 ### TNARA-branded build (white-label)
 
-`npm run dist:tnara` builds a separate, TNARA-branded Windows installer into
-`release-tnara/` (`TNARA TAC-<version>-Setup.exe` / `-Portable.exe`). It sets
-`KERCHUNK_BRAND=tnara`, which — via the `__BRAND__` define in
-`electron.vite.config.ts` and `src/shared/brand.ts` — swaps the app name, logo,
-and tagline, and **seeds saved node `610750`** on first run. Packaging overrides
-(productName, appId, icon, output dir) live in `electron-builder.tnara.cjs`,
-which extends the base `build` config. The GitHub release workflow builds it on
-the Windows runner and attaches it alongside the Kerchunk installers.
+`npm run dist:tnara` builds a separate, **TNARA Kerchunk**-branded Windows
+installer into `release-tnara/` (`TNARA Kerchunk-<version>-Setup.exe` /
+`-Portable.exe`). It sets `KERCHUNK_BRAND=tnara`, which — via the `__BRAND__`
+define in `electron.vite.config.ts` and `src/shared/brand.ts` — swaps the app
+name, logo, and tagline, and **seeds saved node `610750`** on first run.
+Packaging overrides (productName, appId, icon, output dir) live in
+`electron-builder.tnara.cjs`, which extends the base `build` config. The GitHub
+release workflow builds it on the Windows runner and attaches it alongside the
+Kerchunk installers.
 
-> Replace the placeholder brand icons with the real TNARA logo:
-> `build/icon-tnara.png` (installer/app icon) and
-> `src/renderer/src/assets/tnara-icon.png` (in-app header logo). They're
-> currently copies of the Kerchunk icon so the build works.
+> Brand icons live at `build/icon-tnara.png` (installer/app icon) and
+> `src/renderer/src/assets/tnara-icon.png` (in-app header logo) — both are the
+> TNARA logo (`TNARA-TACS.png`, 1024×1024). Swap those two files to rebrand.
 
 Auto-update is disabled for non-`kerchunk` brands (they share the Kerchunk
 GitHub release, so self-updating would strip the branding). To add more brands,

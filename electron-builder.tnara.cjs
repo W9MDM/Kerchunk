@@ -12,13 +12,13 @@ const useLocalElectron = process.platform === 'win32';
 
 module.exports = {
   ...base,
-  productName: 'TNARA TAC',
-  appId: 'org.tnara.tac',
+  productName: 'TNARA Kerchunk',
+  appId: 'org.tnara.kerchunk',
   directories: { ...base.directories, output: 'release-tnara' },
   win: { ...base.win, icon: 'build/icon-tnara.png' },
-  nsis: { ...base.nsis, shortcutName: 'TNARA TAC' },
+  nsis: { ...base.nsis, shortcutName: 'TNARA Kerchunk' },
   // Bakes name/productName into the packaged app's package.json; artifactName
-  // templates use ${productName} → "TNARA TAC-<version>-Setup.exe".
-  extraMetadata: { name: 'tnara-tac', productName: 'TNARA TAC' },
+  // templates use ${productName} → "TNARA Kerchunk-<version>-Setup.exe".
+  extraMetadata: { name: 'tnara-kerchunk', productName: 'TNARA Kerchunk' },
   ...(useLocalElectron ? { electronDist: 'node_modules/electron/dist' } : {}),
 };
