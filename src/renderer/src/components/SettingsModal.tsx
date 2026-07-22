@@ -230,16 +230,15 @@ export function SettingsModal(props: SettingsModalProps) {
           </button>
         </div>
 
-        {/* Tab bar — fills when wide, scrolls horizontally when the window is narrow */}
-        <div className="mb-4 flex gap-1 overflow-x-auto rounded-lg bg-muted p-1 text-xs">
+        {/* Tab bar — fills one row when wide, wraps to two rows when narrow */}
+        <div className="mb-4 flex flex-wrap gap-1 rounded-lg bg-muted p-1 text-xs">
           {TABS.map((t) => (
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
-              className={`flex shrink-0 grow basis-0 flex-col items-center gap-1 rounded-md px-1.5 py-1.5 font-medium transition ${
+              className={`flex grow basis-[4.25rem] flex-col items-center gap-1 rounded-md px-1.5 py-1.5 font-medium transition ${
                 tab === t.id ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
               }`}
-              style={{ minWidth: '3.25rem' }}
             >
               <FontAwesomeIcon icon={t.icon} />
               <span className="max-w-full truncate">{t.label}</span>
