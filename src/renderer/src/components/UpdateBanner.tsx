@@ -1,6 +1,46 @@
 import type { UpdateInfoDto } from '../../../shared/ipc';
 import { FontAwesomeIcon, faRotate, faXmark } from '../icons';
 
+/** Tags we allow through from release notes; everything else is unwrapped to its text. */
+const ALLOWED_TAGS = new Set([
+  'P', 'BR', 'STRONG', 'B', 'EM', 'I', 'CODE', 'PRE', 'A', 'UL', 'OL', 'LI',
+  'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'BLOCKQUOTE', 'HR', 'DIV', 'SPAN',
+]);
+
+/**
+ * Sanitize GitHub release-notes HTML for safe rendering: keep a whitelist of
+ * formatting tags, drop everything else (scripts, styles, event handlers), and
+ * keep only http(s) hrefs on links. Runs in the renderer, where DOMParser lives.
+ */
+function sanitizeNotesHtml(html: string): string {
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const walk = (node: Node) => {
+    for (const child of Array.from(node.childNodes)) {
+      if (child.nodeType === Node.ELEMENT_NODE) {
+        const el = child as Element;
+        if (!ALLOWED_TAGS.has(el.tagName)) {
+          // Unwrap disallowed elements: replace with their (cleaned) contents.
+          walk(el);
+          el.replaceWith(...Array.from(el.childNodes));
+          continue;
+        }
+        // Strip every attribute except a validated href on <a>.
+        for (const attr of Array.from(el.attributes)) {
+          const keep = el.tagName === 'A' && attr.name === 'href' && /^https?:\/\//i.test(attr.value);
+          if (!keep) el.removeAttribute(attr.name);
+        }
+        walk(el);
+      } else if (child.nodeType === Node.COMMENT_NODE) {
+        child.remove();
+      }
+    }
+  };
+  walk(doc.body);
+  return doc.body.innerHTML;
+}
+
+const looksLikeHtml = (s: string) => /<[a-z][\s\S]*>/i.test(s);
+
 interface UpdateBannerProps {
   info: UpdateInfoDto | null;
   /** Download percent (0–100) while downloading; null when not downloading. */
@@ -35,7 +75,22 @@ export function UpdateBanner({ info, progress, downloaded, onDownload, onInstall
         {info.notes && (
           <div className="mt-3 min-h-0 flex-1 overflow-y-auto rounded-lg border border-border bg-background p-3">
             <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">What's new</div>
-            <pre className="whitespace-pre-wrap font-sans text-xs text-foreground">{info.notes}</pre>
+            {looksLikeHtml(info.notes) ? (
+              <div
+                onClick={(e) => {
+                  // Open links in the system browser; a bare <a> would navigate the app window away.
+                  const a = (e.target as HTMLElement).closest('a');
+                  if (a?.getAttribute('href')) {
+                    e.preventDefault();
+                    onViewGitHub(a.getAttribute('href')!);
+                  }
+                }}
+                className="space-y-2 text-xs leading-relaxed text-foreground [&_a]:text-primary [&_a]:underline [&_h1]:text-sm [&_h1]:font-semibold [&_h2]:text-sm [&_h2]:font-semibold [&_h3]:font-semibold [&_li]:mb-0.5 [&_ol]:list-decimal [&_ol]:pl-5 [&_strong]:font-semibold [&_ul]:list-disc [&_ul]:pl-5"
+                dangerouslySetInnerHTML={{ __html: sanitizeNotesHtml(info.notes) }}
+              />
+            ) : (
+              <pre className="whitespace-pre-wrap font-sans text-xs text-foreground">{info.notes}</pre>
+            )}
           </div>
         )}
 
