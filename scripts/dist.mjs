@@ -19,7 +19,9 @@ const env = { ...process.env, CSC_IDENTITY_AUTO_DISCOVERY: 'false' };
 for (const key of ['CSC_LINK', 'WIN_CSC_LINK', 'CSC_KEY_PASSWORD', 'WIN_CSC_KEY_PASSWORD']) {
   delete env[key];
 }
-const args = target ? [target] : [];
+// --publish never: a git tag + the `publish` config would otherwise trigger an
+// implicit GitHub publish (which needs GH_TOKEN and fails without it).
+const args = target ? [target, '--publish', 'never'] : ['--publish', 'never'];
 
 const result = spawnSync('electron-builder', args, {
   stdio: 'inherit',
