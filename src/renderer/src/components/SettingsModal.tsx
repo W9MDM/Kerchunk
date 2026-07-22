@@ -466,7 +466,7 @@ export function SettingsModal(props: SettingsModalProps) {
                   <div className="flex rounded-lg bg-muted p-0.5 text-sm">
                     {(['start', 'end', 'both'] as const).map((t) => (
                       <button key={t} onClick={() => props.onMdcTimingChange(t)} className={`flex-1 rounded-md px-3 py-1.5 font-medium transition ${props.mdcTiming === t ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
-                        {t === 'start' ? 'On key-up' : t === 'end' ? 'On key-down' : 'Both'}
+                        {t === 'start' ? 'Pre' : t === 'end' ? 'Post' : 'Both'}
                       </button>
                     ))}
                   </div>

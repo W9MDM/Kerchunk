@@ -20,6 +20,8 @@ export const IPC_CHANNELS = {
   OVERLAY_PTT: 'overlay:ptt',
   OVERLAY_TX: 'overlay:tx',
   OVERLAY_RX: 'overlay:rx',
+  OVERLAY_MUTE: 'overlay:mute',
+  OVERLAY_MUTED: 'overlay:muted',
   OVERLAY_VISIBILITY: 'overlay:visibility',
   UPDATE_CHECK: 'update:check',
   UPDATE_DOWNLOAD: 'update:download',
@@ -138,6 +140,8 @@ export interface NodeSettings {
   audioOutput?: string;
   /** App output (speaker) volume, 0–100. Default 100. */
   outputVolume?: number;
+  /** Output muted (independent of the volume level). */
+  muted?: boolean;
   /** Microphone input level, 0–100. Default 100. */
   inputGain?: number;
   /** True once the first-run setup wizard has been completed or skipped. */
@@ -319,6 +323,14 @@ export interface KerchunkBridge {
   onOverlayTx(callback: (on: boolean) => void): () => void;
   /** Overlay window: reflect the live receive state on the button. */
   onOverlayRx(callback: (on: boolean) => void): () => void;
+  /** Overlay renderer: request a mute toggle. */
+  overlayMute(): void;
+  /** Main window: the overlay asked to toggle mute. */
+  onOverlayMute(callback: () => void): () => void;
+  /** Main window → overlay: mute state changed. */
+  overlayMuted(on: boolean): void;
+  /** Overlay window: reflect the mute state on its mute button. */
+  onOverlayMuted(callback: (on: boolean) => void): () => void;
   /** Main window: the overlay's visibility changed (e.g. closed from itself). */
   onOverlayVisibility(callback: (visible: boolean) => void): () => void;
   /** Check GitHub for an update. `manual` surfaces "up to date"/errors to the user. */

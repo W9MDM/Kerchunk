@@ -768,6 +768,12 @@ app.whenReady().then(() => {
   ipcMain.on(IPC_CHANNELS.OVERLAY_RX, (_event, on: boolean) => {
     overlayWindow?.webContents.send(IPC_CHANNELS.OVERLAY_RX, on);
   });
+  ipcMain.on(IPC_CHANNELS.OVERLAY_MUTE, () => {
+    mainWindow?.webContents.send(IPC_CHANNELS.OVERLAY_MUTE);
+  });
+  ipcMain.on(IPC_CHANNELS.OVERLAY_MUTED, (_event, on: boolean) => {
+    overlayWindow?.webContents.send(IPC_CHANNELS.OVERLAY_MUTED, on);
+  });
 
   ipcMain.on(IPC_CHANNELS.PROTOCOL_SET_HOTKEY, (_event, code: string) => {
     pttAccelerator = comboToAccelerator(code);

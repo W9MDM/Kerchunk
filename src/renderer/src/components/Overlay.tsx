@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { FontAwesomeIcon, faMicrophone, faXmark, faGripVertical } from '../icons';
+import { FontAwesomeIcon, faMicrophone, faXmark, faGripVertical, faVolumeHigh, faVolumeXmark } from '../icons';
 
 /**
  * The floating, always-on-top PTT button. Runs in its own frameless/transparent
@@ -8,12 +8,14 @@ import { FontAwesomeIcon, faMicrophone, faXmark, faGripVertical } from '../icons
 export function Overlay() {
   const [transmitting, setTransmitting] = useState(false);
   const [receiving, setReceiving] = useState(false);
+  const [muted, setMuted] = useState(false);
 
   useEffect(() => {
-    // Reflect the real transmit + receive state (also covers hotkey / main PTT).
+    // Reflect the real transmit + receive + mute state (covers hotkey / main PTT).
     const disposers = [
       window.electronAPI.onOverlayTx((on) => setTransmitting(on)),
       window.electronAPI.onOverlayRx((on) => setReceiving(on)),
+      window.electronAPI.onOverlayMuted((on) => setMuted(on)),
     ];
     return () => disposers.forEach((d) => d());
   }, []);
@@ -36,15 +38,24 @@ export function Overlay() {
             </span>
           )}
         </span>
-        <button
-          onClick={() => window.electronAPI.setOverlayVisible(false)}
-          title="Hide floating PTT"
-          aria-label="Hide floating PTT"
-          className="rounded px-1 text-white/50 transition hover:text-white"
-          style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-        >
-          <FontAwesomeIcon icon={faXmark} />
-        </button>
+        <span className="flex items-center gap-1" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+          <button
+            onClick={() => window.electronAPI.overlayMute()}
+            title={muted ? 'Unmute' : 'Mute'}
+            aria-label={muted ? 'Unmute' : 'Mute'}
+            className={`rounded px-1 transition ${muted ? 'text-red-400' : 'text-white/50 hover:text-white'}`}
+          >
+            <FontAwesomeIcon icon={muted ? faVolumeXmark : faVolumeHigh} />
+          </button>
+          <button
+            onClick={() => window.electronAPI.setOverlayVisible(false)}
+            title="Hide floating PTT"
+            aria-label="Hide floating PTT"
+            className="rounded px-1 text-white/50 transition hover:text-white"
+          >
+            <FontAwesomeIcon icon={faXmark} />
+          </button>
+        </span>
       </div>
 
       <button
