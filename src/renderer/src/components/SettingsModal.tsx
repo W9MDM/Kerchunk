@@ -247,7 +247,7 @@ export function SettingsModal(props: SettingsModalProps) {
           ))}
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+        <div className="overflow-y-auto pr-1" style={{ maxHeight: 'calc(85vh - 9rem)' }}>
           {tab === 'node' && (
             <div className="space-y-5">
               <div>
