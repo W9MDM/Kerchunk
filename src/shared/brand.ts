@@ -26,7 +26,11 @@ const BRANDS: Record<string, Brand> = {
     id: 'tara',
     name: 'TARA Kerchunk',
     tagline: 'Tennessee Amateur Radio Association',
-    defaultSavedNodes: [{ number: '610750', note: 'TARA TAC', description: 'TARA TAC System', permanent: true }],
+    defaultSavedNodes: [
+      { number: '610750', note: 'TARA TAC', description: 'TARA TAC System', permanent: true },
+      { number: '610751', note: 'TARA West', description: 'West TN repeaters & nodes' },
+      { number: '610752', note: 'TARA East', description: 'East TN repeaters & nodes' },
+    ],
     // TARA logo palette: navy #183048 (primary) with red #a81818 accents.
     accent: '#183048',
   },

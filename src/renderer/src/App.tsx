@@ -2,7 +2,7 @@ import { memo, useEffect, useRef, useState } from 'react';
 import type { ThemeMode, ThemeState } from '../../shared/theme';
 import type { DtmfCommand, NodeInfoDto, NodeSettings, ProtocolConnectionInfo, SavedNode, Topology } from '../../shared/ipc';
 import { AudioEngine } from './audio/engine';
-import { ActivityLog } from './components/ActivityLog';
+import { ActivityLog, type ActivityEntry } from './components/ActivityLog';
 import { CollapsibleSection } from './components/CollapsibleSection';
 import { LinkedNodes, type SortMode } from './components/LinkedNodes';
 import { Meter } from './components/Meter';
@@ -15,6 +15,7 @@ import { AppMenu } from './components/AppMenu';
 import { VolumeControl } from './components/VolumeControl';
 import { SetupWizard } from './components/SetupWizard';
 import { UpdateBanner } from './components/UpdateBanner';
+import { AboutModal } from './components/AboutModal';
 import kerchunkIcon from './assets/kerchunk-icon.png';
 import taraIcon from './assets/tara-icon.png';
 import { decodeG711Chunk } from '../../shared/audio';
@@ -26,6 +27,9 @@ declare const __APP_VERSION__: string;
 
 /** Per-build brand logo. */
 const brandLogo = BRAND.id === 'tara' ? taraIcon : kerchunkIcon;
+
+/** Local wall-clock time for activity-log entries, e.g. "14:32:09". */
+const nowTime = () => new Date().toLocaleTimeString([], { hour12: false });
 import MdcDecoderWorker from './audio/mdcDecoder.worker?worker';
 import { FontAwesomeIcon, faTowerBroadcast, faMicrophone, faMagnifyingGlass, faFloppyDisk } from './icons';
 
@@ -144,7 +148,7 @@ export default function App() {
   const [topology, setTopology] = useState<Topology | null>(null);
   const [sortMode, setSortMode] = useState<SortMode>('keyed');
   const [registered, setRegistered] = useState(false);
-  const [activity, setActivity] = useState<string[]>(['Kerchunk node ready.']);
+  const [activity, setActivity] = useState<ActivityEntry[]>(() => [{ time: nowTime(), message: `${BRAND.name} ready.` }]);
   const [txLevel, setTxLevel] = useState(0);
   const [rxLevel, setRxLevel] = useState(0);
   const [transmitting, setTransmitting] = useState(false);
@@ -155,6 +159,9 @@ export default function App() {
   const [updateInfo, setUpdateInfo] = useState<import('../../shared/ipc').UpdateInfoDto | null>(null);
   const [updateProgress, setUpdateProgress] = useState<number | null>(null);
   const [updateDownloaded, setUpdateDownloaded] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const noticeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [keyedNumbers, setKeyedNumbers] = useState<Set<string>>(new Set());
   const [uiScale, setUiScale] = useState(0.75);
   const [accent, setAccent] = useState(BRAND.accent ?? '#007aff');
@@ -181,6 +188,9 @@ export default function App() {
   const [overlayEnabled, setOverlayEnabled] = useState(false);
   const [outputVolume, setOutputVolume] = useState(100);
   const [inputGain, setInputGain] = useState(100);
+  const [muted, setMuted] = useState(false);
+  const mutedRef = useRef(false);
+  const handleMuteToggleRef = useRef<(on: boolean) => void>(() => {});
   const [setupComplete, setSetupComplete] = useState(true);
   const [brandSeeded, setBrandSeeded] = useState(true);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
@@ -196,7 +206,16 @@ export default function App() {
   const prevUpRef = useRef<Set<string> | null>(null);
   const heardMdcTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
-  const log = (message: string) => setActivity((current) => [message, ...current].slice(0, 60));
+  const log = (message: string) =>
+    setActivity((current) => [{ time: nowTime(), message }, ...current].slice(0, 60));
+
+  /** Transient top-of-window toast (also logged to Activity). */
+  const showNotice = (message: string, sticky = false) => {
+    log(message);
+    setNotice(message);
+    clearTimeout(noticeTimer.current);
+    if (!sticky) noticeTimer.current = setTimeout(() => setNotice(null), 5000);
+  };
 
   const getAudioEngine = () => {
     if (!audioEngineRef.current) {
@@ -243,6 +262,7 @@ export default function App() {
     overlayEnabled,
     outputVolume,
     inputGain,
+    muted,
     setupComplete,
     brandSeeded,
     notificationsEnabled,
@@ -316,9 +336,14 @@ export default function App() {
     if (typeof settings.closeToTray === 'boolean') setCloseToTray(settings.closeToTray);
     if (typeof settings.launchOnStartup === 'boolean') setLaunchOnStartup(settings.launchOnStartup);
     if (typeof settings.overlayEnabled === 'boolean') setOverlayEnabled(settings.overlayEnabled);
-    if (typeof settings.outputVolume === 'number') {
-      setOutputVolume(settings.outputVolume);
-      getAudioEngine().setOutputVolume(settings.outputVolume / 100);
+    if (typeof settings.muted === 'boolean') {
+      setMuted(settings.muted);
+      mutedRef.current = settings.muted;
+    }
+    if (typeof settings.outputVolume === 'number') setOutputVolume(settings.outputVolume);
+    {
+      const vol = typeof settings.outputVolume === 'number' ? settings.outputVolume : 100;
+      getAudioEngine().setOutputVolume((settings.muted ? 0 : vol) / 100);
     }
     if (typeof settings.inputGain === 'number') {
       setInputGain(settings.inputGain);
@@ -368,6 +393,8 @@ export default function App() {
       window.electronAPI.onOverlayPtt((down) => handleTransmitRef.current(down)),
       // Keep the in-app toggle in sync if the overlay is closed from itself.
       window.electronAPI.onOverlayVisibility((visible) => setOverlayEnabled(visible)),
+      // Overlay's mute button → toggle app mute.
+      window.electronAPI.onOverlayMute(() => handleMuteToggleRef.current(!mutedRef.current)),
       // Auto-update lifecycle.
       window.electronAPI.onUpdateAvailable((info) => {
         setUpdateProgress(null);
@@ -380,8 +407,8 @@ export default function App() {
         setUpdateDownloaded(true);
         setUpdateProgress(100);
       }),
-      window.electronAPI.onUpdateNone(() => log("You're on the latest version.")),
-      window.electronAPI.onUpdateError((message) => log(`Update check: ${message}`)),
+      window.electronAPI.onUpdateNone(() => showNotice(`You're on the latest version (v${__APP_VERSION__}).`)),
+      window.electronAPI.onUpdateError((message) => showNotice(`Update check: ${message}`)),
     ];
     return () => disposers.forEach((dispose) => dispose());
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -683,9 +710,24 @@ export default function App() {
   };
   const handleOutputVolume = (v: number) => {
     setOutputVolume(v);
-    getAudioEngine().setOutputVolume(v / 100);
-    void persist({ outputVolume: v });
+    // Moving the slider above zero unmutes; the engine follows the mute state.
+    const nowMuted = muted && v === 0;
+    if (muted && v > 0) {
+      setMuted(false);
+      mutedRef.current = false;
+      window.electronAPI.overlayMuted(false);
+    }
+    getAudioEngine().setOutputVolume(nowMuted ? 0 : v / 100);
+    void persist({ outputVolume: v, muted: nowMuted });
   };
+  const handleMuteToggle = (next: boolean) => {
+    setMuted(next);
+    mutedRef.current = next;
+    getAudioEngine().setOutputVolume(next ? 0 : outputVolume / 100);
+    window.electronAPI.overlayMuted(next); // sync the floating PTT's mute button
+    void persist({ muted: next });
+  };
+  handleMuteToggleRef.current = handleMuteToggle;
   const handleInputGain = (v: number) => {
     setInputGain(v);
     getAudioEngine().setInputGain(v / 100);
@@ -990,6 +1032,13 @@ export default function App() {
     if (overlayEnabled) window.electronAPI.overlayRx(receiving);
   }, [receiving, overlayEnabled]);
 
+  // Push the current mute state to the overlay when it (re)opens.
+  useEffect(() => {
+    if (!overlayEnabled) return;
+    const id = setTimeout(() => window.electronAPI.overlayMuted(mutedRef.current), 800);
+    return () => clearTimeout(id);
+  }, [overlayEnabled]);
+
   /** A mode's credentials are missing — nudge the operator to Settings. */
   const openCredsHint = (which: 'node' | 'guest') => {
     log(
@@ -1000,9 +1049,7 @@ export default function App() {
     setSettingsOpen(true);
   };
 
-  const handleAbout = () => {
-    log(`${BRAND.name} v${__APP_VERSION__} — self-contained AllStarLink desktop node · © 2026 W9MDM · PolyForm Noncommercial License (no selling).`);
-  };
+  const handleAbout = () => setAboutOpen(true);
 
   return (
     <main className="min-h-screen bg-background text-foreground transition-colors duration-200">
@@ -1037,7 +1084,7 @@ export default function App() {
                 Web TX
               </button>
             </div>
-            <VolumeControl value={outputVolume} onChange={handleOutputVolume} />
+            <VolumeControl value={outputVolume} muted={muted} onChange={handleOutputVolume} onToggleMute={() => handleMuteToggle(!muted)} />
             <AppMenu
               onSettings={() => setSettingsOpen(true)}
               onDirectory={() => setDirectoryOpen(true)}
@@ -1047,7 +1094,7 @@ export default function App() {
               onAbout={handleAbout}
               onSetupWizard={() => setSetupOpen(true)}
               onCheckUpdates={() => {
-                log('Checking for updates…');
+                showNotice('Checking for updates…');
                 window.electronAPI.checkForUpdate(true);
               }}
               canDisconnect={connections.length > 0}
@@ -1089,7 +1136,7 @@ export default function App() {
                 }}
                 onPointerUp={() => handleTransmit(false)}
                 onPointerCancel={() => handleTransmit(false)}
-                title={transmitting ? 'Transmitting…' : 'Hold to talk'}
+                title={transmitting ? 'Transmitting…' : 'Push to Talk'}
                 aria-label="Push to talk"
                 className={`flex select-none items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
                   transmitting ? 'bg-tx text-white shadow-ptt' : 'bg-accent text-foreground hover:bg-accent/70'
@@ -1117,7 +1164,7 @@ export default function App() {
             }`}
           >
             <FontAwesomeIcon icon={faMicrophone} />
-            {transmitting ? 'Transmitting…' : 'Hold to Talk'}
+            {transmitting ? 'Transmitting…' : 'Push to Talk'}
           </button>
         </CollapsibleSection>
 
@@ -1329,6 +1376,24 @@ export default function App() {
         onSave={() => void handleSaveSettings()}
         trace={trace}
         onTraceToggle={(enabled) => void handleTraceToggle(enabled)}
+      />
+
+      {notice && (
+        <div className="pointer-events-none fixed inset-x-0 top-3 z-[80] flex justify-center px-4">
+          <div className="pointer-events-auto max-w-sm rounded-full border border-border bg-card px-4 py-2 text-sm shadow-card">
+            {notice}
+          </div>
+        </div>
+      )}
+
+      <AboutModal
+        open={aboutOpen}
+        onClose={() => setAboutOpen(false)}
+        name={BRAND.name}
+        version={__APP_VERSION__}
+        tagline={BRAND.tagline}
+        logo={brandLogo}
+        onViewGitHub={() => window.electronAPI.openExternal('https://github.com/W9MDM/Kerchunk/releases')}
       />
 
       <UpdateBanner
