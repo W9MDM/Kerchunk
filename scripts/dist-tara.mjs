@@ -13,8 +13,10 @@ for (const key of ['CSC_LINK', 'WIN_CSC_LINK', 'CSC_KEY_PASSWORD', 'WIN_CSC_KEY_
 let r = spawnSync('electron-vite', ['build'], { stdio: 'inherit', shell: true, env });
 if (r.status) process.exit(r.status);
 
-// 2. Package with the TARA config (electronDist is set inside the config on Windows).
-r = spawnSync('electron-builder', ['--win', '--config', 'electron-builder.tara.cjs'], {
+// 2. Package with the TARA config (electronDist is set inside the config on
+// Windows). --publish never: don't let a git tag trigger an implicit GitHub
+// publish (CI attaches assets separately; that needs no token).
+r = spawnSync('electron-builder', ['--win', '--config', 'electron-builder.tara.cjs', '--publish', 'never'], {
   stdio: 'inherit',
   shell: true,
   env,
