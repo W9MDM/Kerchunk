@@ -121,11 +121,30 @@ The README shows live download-count badges (shields.io, GitHub). For per-asset
 detail — GitHub's web UI no longer displays it — run:
 
 ```bash
-npm run downloads                 # GitHub W9MDM/Kerchunk (set GH_TOKEN if private)
+npm run downloads                 # GitHub W9MDM/Kerchunk
+npm run downloads -- --full       # also list latest.yml / .blockmap assets
+npm run downloads -- --json       # machine-readable
 node scripts/downloads.mjs --gitea https://git.nsccommunications.com PCARC/kerchunk
 ```
 
-Both read `download_count` from each release asset via the API and print totals.
+Both read `download_count` from each release asset via the API, paging through
+every release and asset, and split the numbers two ways:
+
+- **installs** — real artifacts (`.exe`, `.deb`, `.AppImage`, `.dmg`, …), also
+  rolled up per platform.
+- **update-checks** — `latest*.yml`, `builder-debug.yml` and `.blockmap` files.
+  Every running copy of the app polls `latest.yml` on launch, so these are
+  update pings, not downloads. The shields.io badges in the README lump them in
+  with installs, which is why the badge total runs roughly 2× the install count.
+
+What is *not* counted, by any method:
+
+- **Draft releases** are invisible unless you authenticate — set `GH_TOKEN`
+  (or `GITEA_TOKEN`). Without a token you also get only 60 API calls/hr.
+- **Tags with no published release** (a failed CI publish, or a draft) have no
+  assets to count; the script lists these tags explicitly so they aren't silent.
+- **"Source code (zip/tar.gz)"** archives and `git clone`s — GitHub does not
+  expose counts for these at all.
 
 ## Auto-update
 
