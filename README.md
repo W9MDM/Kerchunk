@@ -145,14 +145,21 @@ Build artifacts land in `release/`. The app icon is generated into
 > target was dropped: at ~112 MB it exceeded the 100 MB upload cap of the
 > Cloudflare proxy in front of the Gitea release host.)
 
+## Documentation
+
+- [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) — process layout, IPC boundaries, protocol engine, audio path.
+- [docs/IAX2.md](./docs/IAX2.md) — notes on the IAX2 protocol as implemented.
+- [docs/PROTOCOL-INVARIANTS.md](./docs/PROTOCOL-INVARIANTS.md) — live-verified protocol behaviors that must not change without live-node testing.
+- [docs/DEVELOPMENT.md](./docs/DEVELOPMENT.md) — building, testing, packaging, release/download stats.
+- [docs/PRESENTATION.md](./docs/PRESENTATION.md) — slide-deck content & design brief for presenting Kerchunk.
+
 ## Roadmap
 
 1. Inbound-link support (accept NEW; UDP 4569 forwarding / reachability check).
 2. Reliable delivery for full frames (retransmission, sequence recovery).
 3. Remaining app_rpt niceties: courtesy tones, CW/voice node ID.
 4. Full 32-bit format negotiation and codec fallback beyond G.711.
-5. Tray integration and background operation.
-6. Code-signing for signed, SmartScreen-clean installers.
+5. Code-signing for signed, SmartScreen-clean installers.
 
 ## License
 
