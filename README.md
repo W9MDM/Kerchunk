@@ -8,6 +8,8 @@ Kerchunk is a native, cross-platform desktop client for operating a full AllStar
 
 The project is independent and is not affiliated with or endorsed by AllStarLink, Inc.
 
+![Kerchunk main window](docs/screenshots/01-main-window.png)
+
 Copyright © 2026 W9MDM. Released under the [PolyForm Noncommercial License 1.0.0](./LICENSE)
 — free to use, modify, and share for any noncommercial purpose; **selling it is not permitted**.
 
