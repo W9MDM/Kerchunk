@@ -86,6 +86,24 @@ export class AudioEngine {
     return { audio: base };
   }
 
+  /**
+   * Open the chosen microphone, falling back to the system default when the
+   * saved deviceId no longer exists (Windows re-enumerates endpoints after
+   * driver/OS updates, which invalidates stored ids and made every link fail).
+   */
+  private async openMic(): Promise<MediaStream> {
+    try {
+      return await navigator.mediaDevices.getUserMedia(this.micConstraints());
+    } catch (error) {
+      const name = (error as { name?: string } | null)?.name;
+      const staleDevice = name === 'OverconstrainedError' || name === 'NotFoundError';
+      if (!this.inputDeviceId || !staleDevice) throw error;
+      console.warn(`Saved microphone ${this.inputDeviceId} unavailable (${name}); using system default.`);
+      this.inputDeviceId = '';
+      return navigator.mediaDevices.getUserMedia(this.micConstraints());
+    }
+  }
+
   /** Route playback to the chosen speaker (Chromium AudioContext.setSinkId). */
   private async applyOutputDevice(): Promise<void> {
     const ctx = this.context as (AudioContext & { setSinkId?: (id: string) => Promise<void> }) | null;
@@ -102,7 +120,7 @@ export class AudioEngine {
     const context = this.context;
     if (!context || !this.worklet) return;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia(this.micConstraints());
+      const stream = await this.openMic();
       this.source?.disconnect();
       this.stream?.getTracks().forEach((track) => track.stop());
       const source = context.createMediaStreamSource(stream);
@@ -172,15 +190,21 @@ export class AudioEngine {
     }
 
     const context = new AudioContextClass({ sampleRate: SAMPLE_RATE });
-    // The worklet ships as a static asset (see src/renderer/public); resolve it
-    // relative to the loaded document so it works under both the dev server and
-    // Electron's file:// production load.
-    const workletUrl = new URL('kerchunk-capture-worklet.js', window.location.href);
-    await context.audioWorklet.addModule(workletUrl.href);
-    const playbackUrl = new URL('kerchunk-playback-worklet.js', window.location.href);
-    await context.audioWorklet.addModule(playbackUrl.href);
-
-    const stream = await navigator.mediaDevices.getUserMedia(this.micConstraints());
+    let stream: MediaStream;
+    try {
+      // The worklet ships as a static asset (see src/renderer/public); resolve it
+      // relative to the loaded document so it works under both the dev server and
+      // Electron's file:// production load.
+      const workletUrl = new URL('kerchunk-capture-worklet.js', window.location.href);
+      await context.audioWorklet.addModule(workletUrl.href);
+      const playbackUrl = new URL('kerchunk-playback-worklet.js', window.location.href);
+      await context.audioWorklet.addModule(playbackUrl.href);
+      stream = await this.openMic();
+    } catch (error) {
+      // Don't leak a half-built context; the next start() retries from scratch.
+      void context.close();
+      throw error;
+    }
     const source = context.createMediaStreamSource(stream);
     const worklet = new AudioWorkletNode(context, 'kerchunk-capture');
     worklet.port.onmessage = (event: MessageEvent<Float32Array>) => {
