@@ -82,3 +82,11 @@ Only transmit to a peer when some OTHER source is active that tick — never
 stream silence back at the only talker (it holds their receiver keyed and
 buries real audio; symptom: continuous tx counter while idle, far node never
 hears a clean key-up).
+
+## 10. Up links must prove they're alive (node.ts `checkLink`)
+
+A dropped peer (network loss, reboot, NAT expiry) sends no HANGUP. Every up
+link is PINGed (`LINK_PING_INTERVAL_MS`) and torn down after `LINK_TIMEOUT_MS`
+with no frame of any kind received (`IaxLeg.lastHeard`). INVAL on an up call
+also means the peer has already destroyed it — tear down, don't ignore
+(symptom of breaking this: links show "connected" forever after a drop).

@@ -114,6 +114,8 @@ export class IaxLeg extends EventEmitter<LegEventMap> {
   private mediaTs = 0;
   private forceFull = false;
   private newkeySent = false;
+  private answered = false;
+  private lastHeardAt = 0;
 
   private readonly username: string;
   private readonly callingNumber: string;
@@ -146,6 +148,11 @@ export class IaxLeg extends EventEmitter<LegEventMap> {
     return this.session.isTerminated;
   }
 
+  /** Epoch ms of the last frame of any kind received from the peer (0 = none). */
+  get lastHeard(): number {
+    return this.lastHeardAt;
+  }
+
   /** Originate the outbound call by sending a NEW with the standard IE set. */
   start(): void {
     this.session = new CallSession();
@@ -156,6 +163,7 @@ export class IaxLeg extends EventEmitter<LegEventMap> {
     this.lastAudioSentAt = -1;
     this.mediaTs = 0;
     this.newkeySent = false;
+    this.answered = false;
 
     this.session.dial();
     // An empty CALLTOKEN IE signals call-token support; ASL3 (Asterisk 20+)
@@ -194,6 +202,7 @@ export class IaxLeg extends EventEmitter<LegEventMap> {
 
   /** Hand a received datagram (full or mini frame) to this leg. */
   handle(data: Buffer): void {
+    this.lastHeardAt = Date.now();
     if (!isFullFrame(data)) {
       const mini = decodeMiniFrame(data);
       if (mini.payload.length > 0) {
@@ -301,6 +310,14 @@ export class IaxLeg extends EventEmitter<LegEventMap> {
     this.sendFull(FRAME_TYPE_TEXT, 0, Buffer.from(text, 'utf8'));
   }
 
+  /** Liveness probe: the peer answers with PONG, refreshing {@link lastHeard}. */
+  ping(): void {
+    if (!this.answered || this.session.isTerminated) {
+      return;
+    }
+    this.sendFull(FRAME_TYPE_IAX, IAX_PING, Buffer.alloc(0));
+  }
+
   hangup(): void {
     if (this.session.isTerminated || this.session.currentState === CallState.Idle) {
       return;
@@ -345,6 +362,7 @@ export class IaxLeg extends EventEmitter<LegEventMap> {
       if (this.session.canSendAudio) {
         this.session.answer();
       }
+      this.answered = true;
       this.setState('up');
       this.emit('up');
       this.sendNewkey();
@@ -416,9 +434,17 @@ export class IaxLeg extends EventEmitter<LegEventMap> {
       case IAX_LAGRP:
       case IAX_ACK:
         return;
-      case IAX_VNAK:
       case IAX_INVAL:
-        // Sequence/validity complaints — never ACK these (RFC 5456).
+        // Never ACK INVAL (RFC 5456). On an up call it means the peer no longer
+        // has our call (it rebooted or timed us out) — the link is gone.
+        if (this.answered && !this.session.isTerminated) {
+          this.session.hangup();
+          this.setState('lost');
+          this.emit('hangup');
+        }
+        return;
+      case IAX_VNAK:
+        // Sequence complaint — never ACK (RFC 5456).
         return;
       case IAX_AUTHREQ:
         this.receiveAuthReq(ies, frame.timestamp);
@@ -468,6 +494,7 @@ export class IaxLeg extends EventEmitter<LegEventMap> {
 
     this.sendFull(FRAME_TYPE_CONTROL, CONTROL_ANSWER, Buffer.alloc(0));
     this.session.answer();
+    this.answered = true;
     this.setState('up');
     this.emit('up');
     this.sendNewkey();

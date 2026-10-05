@@ -18,7 +18,11 @@ The first implementation will cover the core set required for registration and c
   registration is implemented (`md5(challenge + secret)`).
 - Call flow: NEW, ACCEPT, ANSWER, ACK, HANGUP, REJECT, PING, and PONG are handled;
   the client auto-answers inbound NEW (ACCEPT + ANSWER) to model a node that
-  accepts links. INVAL and VNAK are not yet acted on.
+  accepts links. INVAL on an up call tears the link down (the peer no longer
+  has it); VNAK is not yet acted on.
+- Link liveness: every up link is PINGed every 5 s and dropped once nothing
+  (voice, PONG, or the peer's own PING/LAGRQ) has arrived for 20 s, so a peer
+  that vanishes without a HANGUP is detected and announced as disconnected.
 - Voice flow: mini-frame exchange for 20 ms G.711 frames; full VOICE frames are
   accepted on receive.
 

@@ -11,7 +11,9 @@ import {
   IAX_ACCEPT,
   IAX_ACK,
   IAX_CALLTOKEN,
+  IAX_INVAL,
   IAX_NEW,
+  IAX_PONG,
   decodeFullFrame,
   encodeFullFrame,
   isFullFrame,
@@ -291,5 +293,50 @@ describe('IaxLeg', () => {
     caller.hangup();
 
     expect(answererHung).toBe(true);
+  });
+
+  it('treats INVAL on an up call as the peer having dropped the link', () => {
+    const caller = new IaxLeg({ localCall: 1 });
+    const answerer = new IaxLeg({ localCall: 2 });
+    pipe(caller, answerer);
+    caller.start();
+
+    let hung = false;
+    caller.on('hangup', () => (hung = true));
+    caller.handle(
+      encodeFullFrame({
+        sourceCall: 2,
+        destCall: 1,
+        retransmit: false,
+        timestamp: 0,
+        oseqno: 0,
+        iseqno: 0,
+        frameType: FRAME_TYPE_IAX,
+        subclass: IAX_INVAL,
+        payload: Buffer.alloc(0),
+      }),
+    );
+
+    expect(hung).toBe(true);
+    expect(caller.isTerminated).toBe(true);
+  });
+
+  it('pings an up peer and records when it was last heard from', () => {
+    const caller = new IaxLeg({ localCall: 1 });
+    const answerer = new IaxLeg({ localCall: 2 });
+    pipe(caller, answerer);
+
+    caller.ping(); // not up yet — no-op
+    caller.start();
+    const before = caller.lastHeard;
+    expect(before).toBeGreaterThan(0);
+
+    const pongs: number[] = [];
+    answerer.on('send', (frame) => {
+      const f = decodeFullFrame(frame);
+      if (f.frameType === FRAME_TYPE_IAX && f.subclass === IAX_PONG) pongs.push(f.subclass);
+    });
+    caller.ping();
+    expect(pongs).toHaveLength(1);
   });
 });

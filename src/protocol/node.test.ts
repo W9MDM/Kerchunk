@@ -10,6 +10,7 @@ import {
   IAX_INVAL,
   IAX_NEW,
   IAX_PING,
+  IAX_PONG,
   decodeFullFrame,
   decodeMiniFrame,
   encodeFullFrame,
@@ -233,5 +234,69 @@ describe('KerchunkNode', () => {
 
     const reply = await inval;
     expect(reply.destCall).toBe(999);
+  });
+
+  /** A peer that answers NEW, then answers PINGs only while `alive()` is true. */
+  async function keepalivePeer(peerPort: number, alive: () => boolean): Promise<Socket> {
+    const sock = createSocket('udp4');
+    sock.on('message', (data, rinfo) => {
+      if (!isFullFrame(data)) return;
+      const frame = decodeFullFrame(data);
+      if (frame.frameType !== FRAME_TYPE_IAX) return;
+      const reply = (frameType: number, subclass: number) =>
+        sock.send(
+          encodeFullFrame({
+            sourceCall: 700,
+            destCall: frame.sourceCall,
+            retransmit: false,
+            timestamp: 0,
+            oseqno: 0,
+            iseqno: 0,
+            frameType,
+            subclass,
+            payload: Buffer.alloc(0),
+          }),
+          rinfo.port,
+          rinfo.address,
+        );
+      if (frame.subclass === IAX_NEW) {
+        reply(FRAME_TYPE_IAX, IAX_ACCEPT);
+        reply(FRAME_TYPE_CONTROL, CONTROL_ANSWER);
+      } else if (frame.subclass === IAX_PING && alive()) {
+        reply(FRAME_TYPE_IAX, IAX_PONG);
+      }
+    });
+    await new Promise<void>((resolve) => sock.bind(peerPort, resolve));
+    return sock;
+  }
+
+  it('drops an up link whose peer goes silent, and keeps one that answers PINGs', async () => {
+    let alive = true;
+    peer = await keepalivePeer(4595, () => alive);
+    node = new KerchunkNode({
+      port: 4594,
+      codec: identityCodec,
+      reportStats: false,
+      linkPingIntervalMs: 40,
+      linkTimeoutMs: 200,
+      resolve: async (nodeNumber) => ({ node: nodeNumber, host: '127.0.0.1', port: 4595 }),
+    });
+    const linked = new Promise<void>((resolve) => {
+      node!.on('state', (line) => line.startsWith('linked to') && resolve());
+    });
+    await node.connectToNode('2000');
+    await linked;
+
+    // Answering PINGs keeps the link up well past the timeout.
+    await wait(500);
+    expect(node.getConnections()).toHaveLength(1);
+
+    // The peer vanishes (no HANGUP) — the link is detected as lost.
+    const lost = new Promise<string>((resolve) => {
+      node!.on('state', (line) => line.includes('lost') && resolve(line));
+    });
+    alive = false;
+    expect(await lost).toContain('link to 2000 lost');
+    expect(node.getConnections()).toHaveLength(0);
   });
 });

@@ -24,7 +24,7 @@ The IPC contract lives in `src/shared/ipc.ts` as the `KerchunkBridge` interface.
 - `ies.ts` — information-element encode/decode plus list helpers.
 - `call.ts` — a guarded `CallSession` state machine (idle → calling/ringing → accepted → up → hangup) that throws on illegal transitions.
 - `leg.ts` — `IaxLeg`, one peer call: it drives a `CallSession` from received frames, acknowledges reliable full frames, runs the `!NEWKEY1!` / RADIO_KEY handshakes, and emits `audio`/`state`/`up`/`hangup`/`dtmf`/`error`.
-- `node.ts` — `KerchunkNode`, the self-contained node. It owns one UDP socket, demultiplexes incoming frames to per-peer `IaxLeg`s by call number, runs an app_rpt-style N-1 conference bridge (`mixer.ts`) so everyone hears everyone but themselves, injects MDC1200 bursts, sends DTMF, and enforces a call-setup timeout (an unanswered outbound call is torn down rather than left "calling").
+- `node.ts` — `KerchunkNode`, the self-contained node. It owns one UDP socket, demultiplexes incoming frames to per-peer `IaxLeg`s by call number, runs an app_rpt-style N-1 conference bridge (`mixer.ts`) so everyone hears everyone but themselves, injects MDC1200 bursts, sends DTMF, enforces a call-setup timeout (an unanswered outbound call is torn down rather than left "calling"), and keeps up links honest with a PING keepalive that drops a link once the peer goes silent.
 - `registration.ts` / `resolver.ts` — ASL3 HTTP registration with refresh, and `nodes.allstarlink.org` DNS resolution.
 - `nodeinfo.ts` / `stats.ts` — AllStarLink stats API: per-node metadata (callsign/location) and keyed status.
 - `wtportal.ts` — Web Transceiver guest session-token fetch.

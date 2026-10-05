@@ -164,6 +164,10 @@ export interface NodeOptions {
   statpostUrl?: string;
   /** Version string reported as apprptvers. */
   appVersion?: string;
+  /** How often to PING each up link (ms). Defaults to {@link LINK_PING_INTERVAL_MS}. */
+  linkPingIntervalMs?: number;
+  /** Drop an up link after hearing nothing from it for this long (ms). */
+  linkTimeoutMs?: number;
 }
 
 const STATS_INTERVAL_MS = 30_000; // app_rpt LINKPOSTTIME / KEYPOSTTIME
@@ -235,10 +239,20 @@ interface Connection {
   lastRxAt: number;
   /** Fires if the peer never answers; cleared once the call comes up. */
   setupTimer?: ReturnType<typeof setTimeout>;
+  /** Pings the peer and checks it's still answering while the link is up. */
+  keepaliveTimer?: ReturnType<typeof setInterval>;
 }
 
 /** How long to wait for a peer to answer before giving up on an outbound call. */
 const CALL_SETUP_TIMEOUT_MS = 15000;
+
+/**
+ * Link liveness. A peer that vanishes (network loss, reboot, NAT expiry) sends
+ * no HANGUP, so we PING every up link and drop it once nothing at all — voice,
+ * PONG, or the peer's own PING/LAGRQ — has arrived for LINK_TIMEOUT_MS.
+ */
+const LINK_PING_INTERVAL_MS = 5000;
+const LINK_TIMEOUT_MS = 20000;
 
 const MIX_INTERVAL_MS = 20;
 
@@ -277,6 +291,8 @@ export class KerchunkNode extends EventEmitter<NodeEventMap> {
   private readonly byRemoteCall = new Map<number, Connection>();
   private readonly nodeInfoCache = new Map<string, NodeInfo>();
   private nextCall = 1;
+  private readonly linkPingIntervalMs: number;
+  private readonly linkTimeoutMs: number;
 
   private readonly localQueue: Int16Array[] = [];
   private mixTimer: ReturnType<typeof setInterval> | null = null;
@@ -315,9 +331,11 @@ export class KerchunkNode extends EventEmitter<NodeEventMap> {
     this.fetchImpl = options.fetchImpl;
     this.debug = options.debug ?? false;
     this.linkUsername = options.linkUsername ?? 'radio';
+    this.linkPingIntervalMs = options.linkPingIntervalMs ?? LINK_PING_INTERVAL_MS;
+    this.linkTimeoutMs = options.linkTimeoutMs ?? LINK_TIMEOUT_MS;
     this.reportStats = options.reportStats ?? true;
     this.statpostUrl = options.statpostUrl ?? DEFAULT_STATPOST_URL;
-    this.appVersion = options.appVersion ?? '0.10.3';
+    this.appVersion = options.appVersion ?? '0.10.4';
 
     this.socket = this.createBoundSocket(this.boundPort);
   }
@@ -612,6 +630,7 @@ export class KerchunkNode extends EventEmitter<NodeEventMap> {
       }
       this.emit('state', `linked to ${label}`);
       this.emitConnections();
+      connection.keepaliveTimer = setInterval(() => this.checkLink(localCall), this.linkPingIntervalMs);
       // Fetch directory metadata only after the call is up and well clear of the
       // setup handshake, so the lookup can't hitch call/audio timing.
       setTimeout(() => void this.loadNodeInfo(connection), 4000);
@@ -1120,6 +1139,22 @@ export class KerchunkNode extends EventEmitter<NodeEventMap> {
     this.socket.send(reply, rinfo.port, rinfo.address);
   }
 
+  /** Keepalive tick for an up link: drop it if the peer has gone silent, else PING. */
+  private checkLink(localCall: number): void {
+    const connection = this.byLocalCall.get(localCall);
+    if (!connection) {
+      return;
+    }
+    const silentMs = Date.now() - connection.leg.lastHeard;
+    if (silentMs >= this.linkTimeoutMs) {
+      this.emit('state', `link to ${connection.label} lost (no response for ${Math.round(silentMs / 1000)}s)`);
+      connection.leg.hangup(); // best effort, in case only the return path died
+      this.removeConnection(localCall);
+      return;
+    }
+    connection.leg.ping();
+  }
+
   private allocateCall(): number {
     let call = this.nextCall;
     // Call numbers are 15-bit and must be non-zero and currently unused.
@@ -1138,6 +1173,10 @@ export class KerchunkNode extends EventEmitter<NodeEventMap> {
     if (connection.setupTimer) {
       clearTimeout(connection.setupTimer);
       connection.setupTimer = undefined;
+    }
+    if (connection.keepaliveTimer) {
+      clearInterval(connection.keepaliveTimer);
+      connection.keepaliveTimer = undefined;
     }
     this.byLocalCall.delete(localCall);
     if (connection.leg.remoteCall) {
