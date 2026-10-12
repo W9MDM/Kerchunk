@@ -18,6 +18,7 @@ import { UpdateBanner } from './components/UpdateBanner';
 import { AboutModal } from './components/AboutModal';
 import kerchunkIcon from './assets/kerchunk-icon.png';
 import taraIcon from './assets/tara-icon.png';
+import auxcommIcon from './assets/auxcomm-icon.png';
 import { decodeG711Chunk } from '../../shared/audio';
 import { DEFAULT_TPT } from '../../shared/tpt';
 import { BRAND } from '../../shared/brand';
@@ -26,7 +27,8 @@ import { BRAND } from '../../shared/brand';
 declare const __APP_VERSION__: string;
 
 /** Per-build brand logo. */
-const brandLogo = BRAND.id === 'tara' ? taraIcon : kerchunkIcon;
+const BRAND_LOGOS: Record<string, string> = { tara: taraIcon, auxcomm: auxcommIcon };
+const brandLogo = BRAND_LOGOS[BRAND.id] ?? kerchunkIcon;
 
 /** Local wall-clock time for activity-log entries, e.g. "14:32:09". */
 const nowTime = () => new Date().toLocaleTimeString([], { hour12: false });
@@ -560,11 +562,11 @@ export default function App() {
       if (notificationsEnabledRef.current) notify(title, body);
     };
     if (prevAll && prevUp) {
-      for (const label of upNow) if (!prevUp.has(label)) announce(`Connected to ${spellNode(label)}`, 'Kerchunk', `Connected to ${label}`);
+      for (const label of upNow) if (!prevUp.has(label)) announce(`Connected to ${spellNode(label)}`, BRAND.name, `Connected to ${label}`);
       for (const label of prevAll) {
         if (allNow.has(label)) continue;
-        if (prevUp.has(label)) announce(`${spellNode(label)} disconnected`, 'Kerchunk', `${label} disconnected`);
-        else announce(`Call to ${spellNode(label)} failed`, 'Kerchunk', `Call to ${label} failed`);
+        if (prevUp.has(label)) announce(`${spellNode(label)} disconnected`, BRAND.name, `${label} disconnected`);
+        else announce(`Call to ${spellNode(label)} failed`, BRAND.name, `Call to ${label} failed`);
       }
     }
     prevConnRef.current = allNow;
@@ -686,7 +688,7 @@ export default function App() {
   const handleNotificationsToggle = (on: boolean) => {
     setNotificationsEnabled(on);
     notificationsEnabledRef.current = on;
-    if (on) notify('Kerchunk', 'Desktop notifications enabled.');
+    if (on) notify(BRAND.name, 'Desktop notifications enabled.');
     void persist({ notificationsEnabled: on });
   };
   /** Mic test: start the audio engine and route the mic to the speaker (sidetone). */

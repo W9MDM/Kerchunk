@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { BRAND } from '../../../shared/brand';
 import type { NodeSettings } from '../../../shared/ipc';
 import {
   FontAwesomeIcon,
@@ -132,7 +133,7 @@ export function SetupWizard({ open, initial, onFinish, onSkip }: SetupWizardProp
           {step === 0 && (
             <div className="space-y-4">
               <div>
-                <h2 className="text-lg font-semibold">Welcome to Kerchunk</h2>
+                <h2 className="text-lg font-semibold">Welcome to {BRAND.name}</h2>
                 <p className="mt-1 text-sm text-muted-foreground">
                   A self-contained AllStarLink node for your desktop. Let's get you on the air — how do you want to operate?
                 </p>
@@ -180,7 +181,7 @@ export function SetupWizard({ open, initial, onFinish, onSkip }: SetupWizardProp
                     <input value={secret} onChange={(e) => setSecret(e.target.value)} type="password" className={inputClass} placeholder="Node secret" />
                     <input value={operatorName} onChange={(e) => setOperatorName(e.target.value)} className={inputClass} placeholder="Your name (shown on the node card)" />
                   </div>
-                  <p className="mt-2 text-xs text-muted-foreground">Kerchunk registers this node with AllStarLink so links are accepted.</p>
+                  <p className="mt-2 text-xs text-muted-foreground">{BRAND.name} registers this node with AllStarLink so links are accepted.</p>
                 </div>
               ) : (
                 <div>
@@ -191,7 +192,7 @@ export function SetupWizard({ open, initial, onFinish, onSkip }: SetupWizardProp
                     <input value={callsign} onChange={(e) => setCallsign(e.target.value)} className={inputClass} placeholder="Your callsign (portal login)" />
                     <input value={wtPassword} onChange={(e) => setWtPassword(e.target.value)} type="password" className={inputClass} placeholder="allstarlink.org portal password" />
                   </div>
-                  <p className="mt-2 text-xs text-muted-foreground">Kerchunk fetches a per-node session token from the portal to connect as a guest.</p>
+                  <p className="mt-2 text-xs text-muted-foreground">{BRAND.name} fetches a per-node session token from the portal to connect as a guest.</p>
                 </div>
               )}
               {!credsOk && <p className="text-xs text-warning">Fill both fields to continue — or skip and add them later in Settings.</p>}

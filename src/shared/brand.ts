@@ -34,6 +34,21 @@ const BRANDS: Record<string, Brand> = {
     // TARA logo palette: navy #183048 (primary) with red #a81818 accents.
     accent: '#183048',
   },
+  auxcomm: {
+    id: 'auxcomm',
+    name: 'Indiana AuxComm',
+    tagline: 'IDHS Auxiliary Communications',
+    defaultSavedNodes: [
+      {
+        number: '651860',
+        note: 'W9SEM Hub',
+        description: 'IDHS AuxComm nets · 1st & 3rd Thu 8 PM ET',
+        permanent: true,
+      },
+    ],
+    // IDHS AUXCOMM seal palette: navy ring #031d63 with red #aa1e2d lettering.
+    accent: '#031d63',
+  },
 };
 
 const brandId = typeof __BRAND__ !== 'undefined' ? __BRAND__ : 'kerchunk';

@@ -58,27 +58,38 @@ tar czf Kerchunk-<version>-linux-x64.tar.gz \
 
 Build the native AppImage/`.deb` on Linux or in CI.
 
-### TARA-branded build (white-label)
+### Branded builds (white-label)
 
-`npm run dist:tara` builds a separate, **TARA Kerchunk**-branded Windows
-installer into `release-tara/` (`TARA Kerchunk-<version>-Setup.exe` /
-`-Portable.exe`). It sets `KERCHUNK_BRAND=tara`, which — via the `__BRAND__`
-define in `electron.vite.config.ts` and `src/shared/brand.ts` — swaps the app
-name, logo, tagline, and **default accent color** (TARA navy `#183048`), and
-**seeds saved node `610750`** on first run. Packaging overrides (productName,
-appId, icon, output dir) live in `electron-builder.tara.cjs`, which extends the
-base `build` config. The GitHub release workflow builds it on the Windows runner
-and attaches it alongside the Kerchunk installers.
+`npm run dist:<brand>` (→ `scripts/dist-brand.mjs <brand>`) builds a separate,
+branded Windows installer into `release-<brand>/`. It sets
+`KERCHUNK_BRAND=<brand>`, which — via the `__BRAND__` define in
+`electron.vite.config.ts` and `src/shared/brand.ts` — swaps the app name
+(header, window title, wizard, notifications, tray), logo, tagline, and
+**default accent color**, and **seeds the brand's saved nodes** on first run.
+Packaging overrides (productName, appId, icon, tray icon, output dir) live in
+`electron-builder.<brand>.cjs`, which extends the base `build` config. Both
+release workflows (GitHub and Gitea) build every brand on each version tag and
+attach the installers alongside the Kerchunk ones.
 
-> Brand icons live at `build/icon-tara.png` (installer/app icon) and
-> `src/renderer/src/assets/tara-icon.png` (in-app header logo) — both are the
-> TARA logo (`TNARA-TACS.png`, 1024×1024). Swap those two files to rebrand.
+| Brand | Script | Installer | Accent | Seeded node |
+| --- | --- | --- | --- | --- |
+| `tara` | `dist:tara` | `TARA Kerchunk-<ver>-Setup.exe` / `-Portable.exe` | TARA navy `#183048` | `610750` TARA TAC (+ `610751`, `610752`) |
+| `auxcomm` | `dist:auxcomm` | `Indiana AuxComm-<ver>-Setup.exe` / `-Portable.exe` | IDHS AUXCOMM navy `#031d63` | `651860` W9SEM Hub (IDHS AuxComm nets, 1st & 3rd Thu 8 PM ET) |
+
+> Brand icons live at `build/icon-<brand>.png` (installer, app and tray icon,
+> 512×512) and `src/renderer/src/assets/<brand>-icon.png` (in-app header logo).
+> TARA's are the TARA logo (`TNARA-TACS.png`). AuxComm's are the IDHS AUXCOMM
+> seal from the IDHSHamTeam groups.io cover photo (325×300, padded square and
+> upscaled) — drop in a higher-res official PNG at those two paths to sharpen it.
 
 Auto-update is disabled for non-`kerchunk` brands (they share the Kerchunk
-GitHub release, so self-updating would strip the branding). To add more brands,
-extend `BRANDS` in `src/shared/brand.ts` (id, name, tagline, `defaultSavedNodes`,
-`accent`) and add a matching `electron-builder.<brand>.cjs` + `dist:<brand>`
-script.
+release, so self-updating would strip the branding). Each brand also gets its
+own settings folder (its productName), so it never shares saved nodes with a
+plain Kerchunk install. To add a brand: extend `BRANDS` in `src/shared/brand.ts`
+(id, name, tagline, `defaultSavedNodes`, `accent`), add its logo to
+`BRAND_LOGOS` in `App.tsx`, add the two icon files, an
+`electron-builder.<brand>.cjs`, a `dist:<brand>` script, and a CI step in both
+release workflows.
 
 ### CI releases (Gitea Actions)
 

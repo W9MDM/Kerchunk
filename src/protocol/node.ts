@@ -335,7 +335,7 @@ export class KerchunkNode extends EventEmitter<NodeEventMap> {
     this.linkTimeoutMs = options.linkTimeoutMs ?? LINK_TIMEOUT_MS;
     this.reportStats = options.reportStats ?? true;
     this.statpostUrl = options.statpostUrl ?? DEFAULT_STATPOST_URL;
-    this.appVersion = options.appVersion ?? '0.10.4';
+    this.appVersion = options.appVersion ?? '0.11.0';
 
     this.socket = this.createBoundSocket(this.boundPort);
   }

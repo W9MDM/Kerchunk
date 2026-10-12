@@ -14,6 +14,11 @@ module.exports = {
   productName: 'TARA Kerchunk',
   appId: 'org.tara.kerchunk',
   directories: { ...base.directories, output: 'release-tara' },
+  // Tray/window icon is read from resources/icon.png at runtime — ship the brand's.
+  extraResources: [
+    ...base.extraResources.filter((r) => typeof r === 'string'),
+    { from: 'build/icon-tara.png', to: 'icon.png' },
+  ],
   win: { ...base.win, icon: 'build/icon-tara.png' },
   nsis: { ...base.nsis, shortcutName: 'TARA Kerchunk' },
   // Bakes name/productName into the packaged app's package.json; artifactName

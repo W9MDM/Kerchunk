@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { BRAND } from '../../../shared/brand';
 import { FontAwesomeIcon, faMicrophone, faXmark, faGripVertical, faVolumeHigh, faVolumeXmark } from '../icons';
 
 /**
@@ -31,7 +32,7 @@ export function Overlay() {
         style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
       >
         <span className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wide text-white/50">
-          <FontAwesomeIcon icon={faGripVertical} /> Kerchunk
+          <FontAwesomeIcon icon={faGripVertical} /> {BRAND.name}
           {receiving && (
             <span className="inline-flex items-center gap-1 rounded-full bg-green-500/20 px-1.5 text-green-400" title="Receiving">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-green-400" /> RX

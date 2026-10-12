@@ -54,6 +54,19 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
         run: npx electron-builder --linux --win --publish never
 
+      # White-label Windows installers (separate products) → release-<brand>/.
+      # Each rebuilds the bundles with KERCHUNK_BRAND set, so they run after the
+      # base packaging above.
+      - name: Package TARA (Windows)
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npm run dist:tara
+
+      - name: Package Indiana AuxComm (Windows)
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npm run dist:auxcomm
+
       - name: Publish Gitea release
         # Force bash — the runner's default shell is /bin/sh (dash), which lacks
         # `shopt`. The builder:wine image ships bash.
@@ -103,12 +116,14 @@ jobs:
 
           shopt -s nullglob
           fail=0
-          for f in release/*.exe release/*.AppImage release/*.deb; do
+          for f in release/*.exe release/*.AppImage release/*.deb release-*/*.exe; do
             [ -e "$f" ] || continue
             name=$(basename "$f")
+            # Brand installers have spaces ("Indiana AuxComm-…") — encode for the URL.
+            qname=$(printf '%s' "$name" | sed 's/ /%20/g')
             echo "Uploading $name ($(du -h "$f" | cut -f1))"
             code=$(curl -s -o /tmp/up.json -w '%{http_code}' -X POST \
-              "$API/repos/$REPO/releases/$rel_id/assets?name=$name" \
+              "$API/repos/$REPO/releases/$rel_id/assets?name=$qname" \
               -H "Authorization: token $TOKEN" \
               -F "attachment=@$f")
             if [ "$code" -ge 400 ]; then

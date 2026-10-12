@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { BRAND } from '../../../shared/brand';
 import {
   FontAwesomeIcon,
   faBars,
@@ -107,7 +108,7 @@ export function AppMenu(props: AppMenuProps) {
           {item(faGear, 'Settings', props.onSettings)}
           {item(faWandMagicSparkles, 'Setup wizard', props.onSetupWizard)}
           {item(faRotate, 'Check for updates', props.onCheckUpdates)}
-          {item(faCircleInfo, 'About Kerchunk', props.onAbout)}
+          {item(faCircleInfo, `About ${BRAND.name}`, props.onAbout)}
         </div>
       )}
     </div>

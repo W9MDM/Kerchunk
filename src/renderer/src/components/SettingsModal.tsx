@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { BRAND } from '../../../shared/brand';
 import type { ThemeMode, ThemeState } from '../../../shared/theme';
 import type { SavedNode } from '../../../shared/ipc';
 import { TPT_DEFS } from '../../../shared/tpt';
@@ -564,7 +565,7 @@ export function SettingsModal(props: SettingsModalProps) {
                 <div className="space-y-2.5">
                   <label className="flex items-center gap-2 text-sm text-muted-foreground">
                     <input type="checkbox" checked={props.launchOnStartup} onChange={(e) => props.onLaunchOnStartupToggle(e.target.checked)} />
-                    Launch Kerchunk when I sign in
+                    Launch {BRAND.name} when I sign in
                   </label>
                   <label className="flex items-center gap-2 text-sm text-muted-foreground">
                     <input type="checkbox" checked={props.closeToTray} onChange={(e) => props.onCloseToTrayToggle(e.target.checked)} />
@@ -586,7 +587,7 @@ export function SettingsModal(props: SettingsModalProps) {
                   </button>
                 </div>
                 <p className="mt-1.5 text-xs text-muted-foreground">
-                  Export your settings and saved nodes to a JSON file for backup, or to move Kerchunk to another machine.
+                  Export your settings and saved nodes to a JSON file for backup, or to move {BRAND.name} to another machine.
                 </p>
               </div>
             </div>

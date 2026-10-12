@@ -3,6 +3,10 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import { Overlay } from './components/Overlay';
 import './styles.css';
+import { BRAND } from '../../shared/brand';
+
+// index.html ships a generic <title>; white-label builds show their own name.
+document.title = BRAND.name;
 
 // The same bundle powers two windows: the main app, and the tiny always-on-top
 // PTT overlay (loaded with a #overlay hash). Branch on the hash at boot.
