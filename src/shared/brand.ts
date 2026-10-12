@@ -37,7 +37,7 @@ const BRANDS: Record<string, Brand> = {
   auxcomm: {
     id: 'auxcomm',
     name: 'Indiana AuxComm',
-    tagline: 'IDHS Auxiliary Communications',
+    tagline: 'Indiana Auxiliary Communications',
     defaultSavedNodes: [
       {
         number: '651860',
@@ -46,7 +46,7 @@ const BRANDS: Record<string, Brand> = {
         permanent: true,
       },
     ],
-    // IDHS AUXCOMM seal palette: navy ring #031d63 with red #aa1e2d lettering.
+    // Name-only brand (stock Kerchunk logo); navy accent.
     accent: '#031d63',
   },
 };

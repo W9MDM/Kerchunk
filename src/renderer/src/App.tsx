@@ -18,7 +18,6 @@ import { UpdateBanner } from './components/UpdateBanner';
 import { AboutModal } from './components/AboutModal';
 import kerchunkIcon from './assets/kerchunk-icon.png';
 import taraIcon from './assets/tara-icon.png';
-import auxcommIcon from './assets/auxcomm-icon.png';
 import { decodeG711Chunk } from '../../shared/audio';
 import { DEFAULT_TPT } from '../../shared/tpt';
 import { BRAND } from '../../shared/brand';
@@ -27,7 +26,7 @@ import { BRAND } from '../../shared/brand';
 declare const __APP_VERSION__: string;
 
 /** Per-build brand logo. */
-const BRAND_LOGOS: Record<string, string> = { tara: taraIcon, auxcomm: auxcommIcon };
+const BRAND_LOGOS: Record<string, string> = { tara: taraIcon };
 const brandLogo = BRAND_LOGOS[BRAND.id] ?? kerchunkIcon;
 
 /** Local wall-clock time for activity-log entries, e.g. "14:32:09". */

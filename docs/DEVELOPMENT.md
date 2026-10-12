@@ -74,13 +74,14 @@ attach the installers alongside the Kerchunk ones.
 | Brand | Script | Installer | Accent | Seeded node |
 | --- | --- | --- | --- | --- |
 | `tara` | `dist:tara` | `TARA Kerchunk-<ver>-Setup.exe` / `-Portable.exe` | TARA navy `#183048` | `610750` TARA TAC (+ `610751`, `610752`) |
-| `auxcomm` | `dist:auxcomm` | `Indiana AuxComm-<ver>-Setup.exe` / `-Portable.exe` | IDHS AUXCOMM navy `#031d63` | `651860` W9SEM Hub (IDHS AuxComm nets, 1st & 3rd Thu 8 PM ET) |
+| `auxcomm` | `dist:auxcomm` | `Indiana AuxComm-<ver>-Setup.exe` / `-Portable.exe` | navy `#031d63` | `651860` W9SEM Hub (IDHS AuxComm nets, 1st & 3rd Thu 8 PM ET) |
 
 > Brand icons live at `build/icon-<brand>.png` (installer, app and tray icon,
 > 512×512) and `src/renderer/src/assets/<brand>-icon.png` (in-app header logo).
-> TARA's are the TARA logo (`TNARA-TACS.png`). AuxComm's are the IDHS AUXCOMM
-> seal from the IDHSHamTeam groups.io cover photo (325×300, padded square and
-> upscaled) — drop in a higher-res official PNG at those two paths to sharpen it.
+> TARA's are the TARA logo (`TNARA-TACS.png`). A brand without its own icon
+> files (e.g. `auxcomm`, a name-only brand) keeps the stock Kerchunk icon — just
+> leave the icon overrides out of its `electron-builder.<brand>.cjs` and its
+> entry out of `BRAND_LOGOS`.
 
 Auto-update is disabled for non-`kerchunk` brands (they share the Kerchunk
 release, so self-updating would strip the branding). Each brand also gets its

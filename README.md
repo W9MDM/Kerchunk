@@ -22,9 +22,9 @@ Grab a build from the `release/` folder (or from whoever sent it to you):
 - **Kerchunk-x.y.z-Portable.exe** — no install; double-click to run.
 
 Group-branded editions ship from the same release: **Indiana AuxComm**
-(IDHS AUXCOMM seal, pre-saved W9SEM Hub 651860 for the IDHS AuxComm nets) and
-**TARA Kerchunk**. They're the same app with their own name, logo, colors and
-starter nodes — see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md#branded-builds-white-label).
+(pre-saved W9SEM Hub 651860 for the IDHS AuxComm nets) and
+**TARA Kerchunk**. They're the same app with their own name, colors, starter
+nodes and (TARA) logo — see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md#branded-builds-white-label).
 
 These builds are not code-signed, so Windows SmartScreen will show a
 "Windows protected your PC" prompt the first time. Click **More info →
