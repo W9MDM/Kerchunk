@@ -29,6 +29,14 @@ const Branch = memo(function Branch({ node, depth }: { node: TopologyTreeNode; d
         {node.isSelf && <span className="text-xs text-muted-foreground">(you)</span>}
         {detail && <span className="truncate text-xs text-muted-foreground">{detail}</span>}
         {node.truncated && <span className="text-xs text-muted-foreground" title="shown above">⟲</span>}
+        {node.unavailable && (
+          <span
+            className="text-xs text-muted-foreground"
+            title="Couldn't load this node's links (AllStarLink stats busy or rate-limited) — Refresh to retry"
+          >
+            ?
+          </span>
+        )}
       </div>
       {meta && !node.isSelf && <div className="pb-0.5 pl-0 text-xs text-muted-foreground">{meta}</div>}
       {node.children.length > 0 && (
@@ -52,6 +60,7 @@ export const NetworkTree = memo(function NetworkTree({ topology, onRefresh }: Ne
       icon={faGlobe}
       right={
         <>
+          {topology.complete === false && <span className="text-xs text-muted-foreground">mapping…</span>}
           <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium tabular-nums text-muted-foreground">
             {total}
           </span>
@@ -68,7 +77,9 @@ export const NetworkTree = memo(function NetworkTree({ topology, onRefresh }: Ne
         <Branch node={topology.root} depth={0} />
       </div>
       <p className="mt-3 text-xs text-muted-foreground">
-        Live map of the mesh you're linked into. 🟢 = recently keyed per AllStarLink stats (~30s lag). ⟲ = shown above.
+        Live map of the mesh you're linked into. 🟢 = recently keyed per AllStarLink stats (~30s lag). ⟲ = shown above. ? =
+        links couldn't be loaded (Refresh to retry). AllStarLink allows ~30 lookups a minute, so a big mesh fills in
+        over a minute or so.
       </p>
     </CollapsibleSection>
   );

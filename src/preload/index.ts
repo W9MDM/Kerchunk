@@ -11,6 +11,7 @@ import {
   type ProtocolGuestConnectPayload,
   type ProtocolRegisterPayload,
   type ProtocolStatePayload,
+  type Topology,
 } from '../shared/ipc.js';
 import { THEME_CHANNELS, type ThemeMode, type ThemeState } from '../shared/theme.js';
 
@@ -80,6 +81,8 @@ const electronAPI: KerchunkBridge = {
     subscribe(IPC_CHANNELS.PROTOCOL_STATE, callback),
   onProtocolConnections: (callback: (payload: ProtocolConnectionsPayload) => void) =>
     subscribe(IPC_CHANNELS.PROTOCOL_CONNECTIONS, callback),
+  onTopologyProgress: (callback: (topology: Topology) => void) =>
+    subscribe(IPC_CHANNELS.PROTOCOL_TOPOLOGY_PROGRESS, callback),
   onProtocolDtmf: (callback: (payload: ProtocolDtmfPayload) => void) =>
     subscribe(IPC_CHANNELS.PROTOCOL_DTMF, callback),
 };

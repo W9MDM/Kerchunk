@@ -90,3 +90,14 @@ link is PINGed (`LINK_PING_INTERVAL_MS`) and torn down after `LINK_TIMEOUT_MS`
 with no frame of any kind received (`IaxLeg.lastHeard`). INVAL on an up call
 also means the peer has already destroyed it — tear down, don't ignore
 (symptom of breaking this: links show "connected" forever after a drop).
+
+## 11. Stats API: pace it, and never read a failure as "no links" (nodeinfo.ts `StatsGate`)
+
+stats.allstarlink.org allows 30 requests/min per IP, enforced as a *rate*:
+bursts get header-less 429s, and hammering gets new connections silently
+dropped (~21 s connect timeouts) for minutes. Every request — 404s included —
+counts. So: all lookups go through the shared `StatsGate` (≈2.2 s spacing,
+back-off on 429/timeouts), only public node numbers are looked up, background
+keyed polling runs at `low` priority, and a failed lookup returns `ok: false`
+→ the tree marks the node `unavailable` (symptom of breaking this: the network
+map silently stops a level or two in, with big hubs shown as empty leaves).

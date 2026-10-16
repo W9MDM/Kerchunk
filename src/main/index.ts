@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { KerchunkNode, type AudioCodec } from '../protocol/node.js';
 import { DEFAULT_IAX_PORT } from '../protocol/resolver.js';
 import { fetchWebTransceiverToken } from '../protocol/wtportal.js';
-import { fetchNodeInfo, fetchNodeStats } from '../protocol/nodeinfo.js';
+import { fetchNodeInfo, fetchNodeStats, isPublicNodeNumber } from '../protocol/nodeinfo.js';
 import { parseAstdb, type DirectoryNode } from '../shared/nodedirectory.js';
 import { encodeMdcBurst, parseUnitId } from '../shared/mdc1200.js';
 import { decodeG711Chunk, encodeG711Chunk } from '../shared/audio.js';
@@ -643,7 +643,11 @@ app.whenReady().then(() => {
   });
 
   ipcMain.handle(IPC_CHANNELS.PROTOCOL_TOPOLOGY, async () => {
-    return protocolNode ? await protocolNode.getTopology() : { node: '', connections: [] };
+    if (!protocolNode) return { root: { node: '', children: [] }, complete: true };
+    // Stream partial maps: at the stats API's 30 req/min a big mesh takes a while.
+    return protocolNode.getTopology((snapshot) =>
+      mainWindow?.webContents.send(IPC_CHANNELS.PROTOCOL_TOPOLOGY_PROGRESS, snapshot),
+    );
   });
 
   ipcMain.handle(IPC_CHANNELS.PROTOCOL_REFRESH_CONNECTIONS, async () => {
@@ -655,9 +659,11 @@ app.whenReady().then(() => {
   ipcMain.handle(IPC_CHANNELS.PROTOCOL_NODE_STATUS, async (_event, nodes: string[]) => {
     const status: Record<string, boolean> = {};
     // Respect the stats API rate limit — cap how many we poll per call.
-    for (const node of (nodes ?? []).slice(0, 20)) {
+    for (const node of (nodes ?? []).filter(isPublicNodeNumber).slice(0, 20)) {
       try {
-        status[node] = (await fetchNodeStats(node)).keyed;
+        // Low priority: skips when the budget is tight so the network map wins.
+        const stats = await fetchNodeStats(node, { priority: 'low' });
+        if (stats.ok) status[node] = stats.keyed;
       } catch {
         // leave unknown
       }

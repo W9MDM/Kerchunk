@@ -16,7 +16,7 @@ import { mixMinusOne, type MixInput } from './mixer.js';
 import { DEFAULT_IAX_PORT, resolveNode, type ResolvedNode } from './resolver.js';
 import { registerNode, type RegistrationResult } from './registration.js';
 import { DEFAULT_STATPOST_URL, buildKeyedUrl, buildStatusUrl, sendStatpost, type LinkState } from './stats.js';
-import { fetchNodeInfo, fetchNodeStats, type NodeInfo } from './nodeinfo.js';
+import { fetchNodeInfo, fetchNodeStats, isPublicNodeNumber, type NodeInfo, type StatsGate } from './nodeinfo.js';
 
 export type MdcTiming = 'start' | 'end' | 'both';
 export interface MdcConfig {
@@ -150,6 +150,8 @@ export interface NodeOptions {
   resolve?: (nodeNumber: string) => Promise<ResolvedNode>;
   /** Injectable fetch for HTTP registration (defaults to the global fetch). */
   fetchImpl?: typeof fetch;
+  /** Pacing gate for stats API lookups (defaults to the shared process-wide one). */
+  statsGate?: StatsGate;
   /** Emit per-frame `state` trace lines for signaling frames (debugging). */
   debug?: boolean;
   /**
@@ -203,11 +205,15 @@ export interface TopologyTreeNode {
   keyed?: boolean;
   isSelf?: boolean;
   truncated?: boolean;
+  /** Its stats lookup failed (rate limit / network) — children are unknown. */
+  unavailable?: boolean;
   children: TopologyTreeNode[];
 }
 
 export interface NodeTopology {
   root: TopologyTreeNode;
+  /** False while the crawl is still running (progress snapshots). */
+  complete: boolean;
 }
 
 export interface NodeEventMap {
@@ -254,6 +260,9 @@ const CALL_SETUP_TIMEOUT_MS = 15000;
 const LINK_PING_INTERVAL_MS = 5000;
 const LINK_TIMEOUT_MS = 20000;
 
+/** The pre-link loop check reuses a network map up to this old. */
+const TOPOLOGY_REUSE_MS = 2 * 60_000;
+
 const MIX_INTERVAL_MS = 20;
 
 // High-frequency frames that should not appear in the signaling trace.
@@ -281,6 +290,7 @@ export class KerchunkNode extends EventEmitter<NodeEventMap> {
   private secret: string;
   private readonly resolveNodeNumber: (nodeNumber: string) => Promise<ResolvedNode>;
   private readonly fetchImpl?: typeof fetch;
+  private readonly statsGate?: StatsGate;
   private debug: boolean;
   private readonly linkUsername: string;
 
@@ -291,6 +301,9 @@ export class KerchunkNode extends EventEmitter<NodeEventMap> {
   private readonly byRemoteCall = new Map<number, Connection>();
   private readonly nodeInfoCache = new Map<string, NodeInfo>();
   private nextCall = 1;
+  private topologyInFlight: Promise<NodeTopology> | null = null;
+  private readonly topologyListeners = new Set<(snapshot: NodeTopology) => void>();
+  private lastTopology: { at: number; topology: NodeTopology } | null = null;
   private readonly linkPingIntervalMs: number;
   private readonly linkTimeoutMs: number;
 
@@ -329,13 +342,14 @@ export class KerchunkNode extends EventEmitter<NodeEventMap> {
     this.secret = options.secret ?? '';
     this.resolveNodeNumber = options.resolve ?? ((node) => resolveNode(node));
     this.fetchImpl = options.fetchImpl;
+    this.statsGate = options.statsGate;
     this.debug = options.debug ?? false;
     this.linkUsername = options.linkUsername ?? 'radio';
     this.linkPingIntervalMs = options.linkPingIntervalMs ?? LINK_PING_INTERVAL_MS;
     this.linkTimeoutMs = options.linkTimeoutMs ?? LINK_TIMEOUT_MS;
     this.reportStats = options.reportStats ?? true;
     this.statpostUrl = options.statpostUrl ?? DEFAULT_STATPOST_URL;
-    this.appVersion = options.appVersion ?? '0.11.1';
+    this.appVersion = options.appVersion ?? '0.11.2';
 
     this.socket = this.createBoundSocket(this.boundPort);
   }
@@ -490,7 +504,10 @@ export class KerchunkNode extends EventEmitter<NodeEventMap> {
       if (/^[0-9]+$/.test(c.label)) set.add(c.label);
     }
     if (this.byLocalCall.size === 0) return set; // nothing linked → no loop possible
-    const topo = await this.getTopology();
+    // Reuse a recent map rather than re-crawling (the stats API allows only
+    // 30 requests/min, so a fresh crawl per Link click would stall linking).
+    const recent = this.lastTopology && Date.now() - this.lastTopology.at < TOPOLOGY_REUSE_MS;
+    const topo = recent ? this.lastTopology!.topology : await this.getTopology();
     const walk = (node: TopologyTreeNode) => {
       for (const child of node.children) {
         if (!child.isSelf) set.add(child.node);
@@ -791,7 +808,7 @@ export class KerchunkNode extends EventEmitter<NodeEventMap> {
     if (cached) {
       return cached;
     }
-    const info = await fetchNodeInfo(this.nodeNumber, { fetchImpl: this.fetchImpl });
+    const info = await fetchNodeInfo(this.nodeNumber, { fetchImpl: this.fetchImpl, gate: this.statsGate });
     if (info) {
       this.nodeInfoCache.set(this.nodeNumber, info);
     }
@@ -807,9 +824,24 @@ export class KerchunkNode extends EventEmitter<NodeEventMap> {
    * cap so a big mesh stays within the stats API's rate limit rather than
    * bursting hundreds of requests at once.
    */
-  async getTopology(maxDepth = 6): Promise<NodeTopology> {
+  getTopology(onProgress?: (snapshot: NodeTopology) => void): Promise<NodeTopology> {
+    // One crawl at a time: a Refresh during a crawl joins it instead of
+    // starting a second one against the same rate limit.
+    if (onProgress) this.topologyListeners.add(onProgress);
+    if (!this.topologyInFlight) {
+      this.topologyInFlight = this.crawlTopology((snapshot) => {
+        for (const listener of this.topologyListeners) listener(snapshot);
+      }).finally(() => {
+        this.topologyInFlight = null;
+        this.topologyListeners.clear();
+      });
+    }
+    return this.topologyInFlight;
+  }
+
+  private async crawlTopology(progress: (snapshot: NodeTopology) => void, maxDepth = 6): Promise<NodeTopology> {
     const NODE_BUDGET = 400; // max nodes to expand across the whole crawl
-    const CONCURRENCY = 6; // simultaneous stats requests
+    const CONCURRENCY = 6; // simultaneous stats requests (the shared gate paces them)
     let budget = NODE_BUDGET;
 
     const root: TopologyTreeNode = {
@@ -831,7 +863,7 @@ export class KerchunkNode extends EventEmitter<NodeEventMap> {
 
     // Seed the frontier from our direct links (carry their richer local info).
     for (const c of this.byLocalCall.values()) {
-      if (!c.up || !/^[0-9]+$/.test(c.label)) continue;
+      if (!c.up || !isPublicNodeNumber(c.label)) continue;
       const treeNode: TopologyTreeNode = {
         node: c.label,
         callsign: c.info?.callsign,
@@ -855,30 +887,38 @@ export class KerchunkNode extends EventEmitter<NodeEventMap> {
         const batch = frontier.slice(i, i + CONCURRENCY).filter(() => budget-- > 0);
         await Promise.all(
           batch.map(async ({ treeNode }) => {
-            const stats = await fetchNodeStats(treeNode.node, { fetchImpl: this.fetchImpl });
+            const stats = await fetchNodeStats(treeNode.node, { fetchImpl: this.fetchImpl, gate: this.statsGate });
             treeNode.keyed = stats.keyed;
+            treeNode.unavailable = !stats.ok;
             for (const link of stats.connections) {
+              // Only public node numbers have stats; private nodes, EchoLink /
+              // phone numbers and web-client callsigns are leaves (a lookup
+              // would be a guaranteed 404 that still costs rate limit).
+              const expandable = isPublicNodeNumber(link.node);
               const child: TopologyTreeNode = {
                 node: link.node,
                 callsign: link.callsign,
                 location: link.location,
                 keyed: false,
-                truncated: enqueued.has(link.node),
+                truncated: expandable && enqueued.has(link.node),
                 children: [],
               };
               treeNode.children.push(child);
-              if (!child.truncated) {
+              if (expandable && !child.truncated) {
                 enqueued.add(link.node);
                 next.push({ treeNode: child, depth: depth + 1 });
               }
             }
           }),
         );
+        progress({ root, complete: false });
       }
       frontier = next;
     }
 
-    return { root };
+    const topology: NodeTopology = { root, complete: true };
+    this.lastTopology = { at: Date.now(), topology };
+    return topology;
   }
 
   /** Fetch (and cache) AllStarLink metadata for a connection's node number. */
@@ -893,7 +933,7 @@ export class KerchunkNode extends EventEmitter<NodeEventMap> {
       this.emitConnections();
       return;
     }
-    const info = await fetchNodeInfo(connection.label, { fetchImpl: this.fetchImpl });
+    const info = await fetchNodeInfo(connection.label, { fetchImpl: this.fetchImpl, gate: this.statsGate });
     if (info) {
       this.nodeInfoCache.set(connection.label, info);
       // The connection may have been torn down while we were fetching.

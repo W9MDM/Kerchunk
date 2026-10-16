@@ -38,6 +38,7 @@ export const IPC_CHANNELS = {
   PROTOCOL_CONNECTIONS: 'protocol:connections',
   PROTOCOL_DTMF: 'protocol:dtmf',
   PROTOCOL_TOPOLOGY: 'protocol:topology',
+  PROTOCOL_TOPOLOGY_PROGRESS: 'protocol:topology-progress',
   PROTOCOL_REFRESH_CONNECTIONS: 'protocol:refresh-connections',
   PROTOCOL_NODE_DIRECTORY: 'protocol:node-directory',
   PROTOCOL_NODE_STATUS: 'protocol:node-status',
@@ -70,11 +71,15 @@ export interface TopologyTreeNode {
   keyed?: boolean;
   isSelf?: boolean;
   truncated?: boolean;
+  /** Its stats lookup failed (rate limit / network) — children are unknown. */
+  unavailable?: boolean;
   children: TopologyTreeNode[];
 }
 
 export interface Topology {
   root: TopologyTreeNode;
+  /** False while the crawl is still running (progress snapshots). */
+  complete?: boolean;
 }
 
 /** A saved DTMF command (a named, reusable key sequence). */
@@ -349,5 +354,7 @@ export interface KerchunkBridge {
   onProtocolAudio(callback: (payload: ProtocolAudioPayload) => void): () => void;
   onProtocolState(callback: (payload: ProtocolStatePayload) => void): () => void;
   onProtocolConnections(callback: (payload: ProtocolConnectionsPayload) => void): () => void;
+  /** Partial network maps while a topology crawl is running. */
+  onTopologyProgress(callback: (topology: Topology) => void): () => void;
   onProtocolDtmf(callback: (payload: ProtocolDtmfPayload) => void): () => void;
 }

@@ -484,11 +484,24 @@ export default function App() {
 
   const refreshTopology = async () => {
     try {
-      setTopology(await window.electronAPI.getTopology());
+      const topo = await window.electronAPI.getTopology();
+      if (linkCountRef.current > 0) setTopology(topo);
     } catch {
       // leave the previous topology in place
     }
   };
+
+  // The crawl is paced by the stats API's rate limit, so the map fills in level
+  // by level from progress snapshots instead of appearing all at once.
+  const linkCountRef = useRef(0);
+  linkCountRef.current = connections.length;
+  useEffect(
+    () =>
+      window.electronAPI.onTopologyProgress((topo) => {
+        if (linkCountRef.current > 0) setTopology(topo);
+      }),
+    [],
+  );
 
   /** Refresh button: re-sync the direct links (repopulate + re-fetch info) and
    * the network map. */

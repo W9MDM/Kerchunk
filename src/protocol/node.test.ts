@@ -1,6 +1,7 @@
 import { createSocket, type Socket } from 'node:dgram';
-import { afterEach, describe, expect, it } from 'vitest';
-import { KerchunkNode, type AudioCodec } from './node.js';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { KerchunkNode, type AudioCodec, type TopologyTreeNode } from './node.js';
+import { StatsGate, clearStatsCache } from './nodeinfo.js';
 import {
   CONTROL_ANSWER,
   FRAME_TYPE_CONTROL,
@@ -298,5 +299,56 @@ describe('KerchunkNode', () => {
     alive = false;
     expect(await lost).toContain('link to 2000 lost');
     expect(node.getConnections()).toHaveLength(0);
+  });
+
+  it('maps the mesh without looking up non-public entries, flagging failed lookups', async () => {
+    clearStatsCache();
+    peer = await keepalivePeer(4597, () => true);
+    const mesh: Record<string, string[]> = {
+      '2000': ['651860', '1610', 'KB9MQU', '3058210'],
+      '651860': ['2000', '626480'],
+    };
+    const fetchImpl = vi.fn(async (url: string) => {
+      const n = decodeURIComponent(url.split('/').pop()!);
+      if (n === '626480') {
+        return { ok: false, status: 500, headers: new Headers(), json: async () => ({}) } as unknown as Response;
+      }
+      const links = mesh[n] ?? [];
+      return {
+        ok: true,
+        status: 200,
+        headers: new Headers(),
+        json: async () => ({ stats: { data: { keyed: false, linkedNodes: links.map((name) => ({ name })) } } }),
+      } as unknown as Response;
+    });
+    node = new KerchunkNode({
+      port: 4596,
+      codec: identityCodec,
+      reportStats: false,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      statsGate: new StatsGate(0),
+      resolve: async (nodeNumber) => ({ node: nodeNumber, host: '127.0.0.1', port: 4597 }),
+    });
+    const linked = new Promise<void>((resolve) => {
+      node!.on('state', (line) => line.startsWith('linked to') && resolve());
+    });
+    await node.connectToNode('2000');
+    await linked;
+
+    const snapshots: boolean[] = [];
+    const topo = await node.getTopology((s) => snapshots.push(s.complete));
+
+    const looked = fetchImpl.mock.calls.map(([url]) => decodeURIComponent(String(url).split('/').pop()!));
+    expect(looked.sort()).toEqual(['2000', '626480', '651860']);
+    expect(topo.complete).toBe(true);
+    expect(snapshots.length).toBeGreaterThan(0);
+    expect(snapshots.every((c) => c === false)).toBe(true);
+
+    const find = (t: TopologyTreeNode, n: string): TopologyTreeNode | undefined =>
+      t.node === n && !t.truncated ? t : t.children.map((c) => find(c, n)).find(Boolean);
+    const hub = find(topo.root, '2000')!;
+    expect(hub.children.map((c) => c.node)).toEqual(['651860', '1610', 'KB9MQU', '3058210']);
+    expect(find(topo.root, '626480')!.unavailable).toBe(true);
+    expect(find(topo.root, '651860')!.unavailable).toBe(false);
   });
 });

@@ -72,7 +72,9 @@ across restarts.
 - **Audio device selection & levels** — pick your microphone and speaker and set
   input/output levels in Settings → Audio, plus a speaker button in the header for
   quick app-volume control.
-- **Network topology** — a live tree of the mesh you're linked into.
+- **Network topology** — a live tree of the mesh you're linked into. It fills in
+  level by level (AllStarLink's stats API allows ~30 lookups a minute, so a big
+  mesh takes a minute or so); a **?** marks a node whose links couldn't be loaded.
 - **Collapsible sections** — every panel minimizes (state remembered); the
   Transmit panel keeps a compact PTT button even when collapsed.
 - **Auto-update** — checks GitHub Releases on launch (and on demand from the
